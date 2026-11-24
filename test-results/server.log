@@ -1,0 +1,74 @@
+===== RUN 1: API integration tests, normal build =====
+2026-11-24T02:17:27.585Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":42,"courseCode":"MCS-FE462B8A"} -> 201 result=registered 6ms
+2026-11-24T02:17:27.592Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":43,"courseCode":"MCS-7F2F5E7B"} -> 409 result=COURSE_FULL 1ms
+2026-11-24T02:17:27.597Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":44,"courseCode":"MCS-CB27DFA2"} -> 422 result=MISSING_PREREQUISITE 2ms
+2026-11-24T02:17:27.601Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":45,"courseCode":"MCS-3FCE8F24"} -> 409 result=ALREADY_REGISTERED 1ms
+2026-11-24T02:17:27.604Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":46,"courseCode":"NOPE-3C0191AD"} -> 404 result=COURSE_NOT_FOUND 1ms
+2026-11-24T02:17:27.606Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"courseCode":"MCS-2514"} -> 400 result=INVALID_REQUEST 0ms
+===== RUN 2: Playwright UI tests, normal build =====
+2026-11-24T02:17:28.045Z build=enrollmentnow-1.0.0-local seed=none GET /courses/health -> 200 3ms
+2026-11-24T02:17:28.449Z build=enrollmentnow-1.0.0-local seed=none POST /test/setup/course body={"code":"MCS-C89C41BB","title":"Software Testing","availableSeats":2,"capacity":2,"prerequisites":[]} -> 201 12ms
+2026-11-24T02:17:28.453Z build=enrollmentnow-1.0.0-local seed=none POST /test/setup/student body={"name":"Playwright Student"} -> 201 1ms
+2026-11-24T02:17:28.457Z build=enrollmentnow-1.0.0-local seed=none GET /courses/MCS-C89C41BB -> 200 1ms
+2026-11-24T02:17:28.460Z build=enrollmentnow-1.0.0-local seed=none GET /api/courses/MCS-C89C41BB -> 200 1ms
+2026-11-24T02:17:28.549Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":47,"courseCode":"MCS-C89C41BB"} -> 201 result=registered 4ms
+2026-11-24T02:17:28.575Z build=enrollmentnow-1.0.0-local seed=none GET /courses/MCS-C89C41BB -> 304 1ms
+2026-11-24T02:17:28.578Z build=enrollmentnow-1.0.0-local seed=none GET /api/courses/MCS-C89C41BB -> 200 1ms
+2026-11-24T02:17:28.588Z build=enrollmentnow-1.0.0-local seed=none POST /test/teardown body={"studentIds":[47],"courseCodes":["MCS-C89C41BB"]} -> 204 1ms
+2026-11-24T02:17:28.633Z build=enrollmentnow-1.0.0-local seed=none POST /test/setup/course body={"code":"MCS-7EB57184","title":"Software Testing","availableSeats":0,"capacity":30,"prerequisites":[]} -> 201 1ms
+2026-11-24T02:17:28.634Z build=enrollmentnow-1.0.0-local seed=none POST /test/setup/student body={"name":"Playwright Student"} -> 201 0ms
+2026-11-24T02:17:28.637Z build=enrollmentnow-1.0.0-local seed=none GET /courses/MCS-7EB57184 -> 200 0ms
+2026-11-24T02:17:28.640Z build=enrollmentnow-1.0.0-local seed=none GET /api/courses/MCS-7EB57184 -> 200 0ms
+2026-11-24T02:17:28.726Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":48,"courseCode":"MCS-7EB57184"} -> 409 result=COURSE_FULL 1ms
+2026-11-24T02:17:28.755Z build=enrollmentnow-1.0.0-local seed=none POST /test/teardown body={"studentIds":[48],"courseCodes":["MCS-7EB57184"]} -> 204 1ms
+2026-11-24T02:17:28.811Z build=enrollmentnow-1.0.0-local seed=none POST /test/setup/course body={"code":"MCS-5F79BA65","title":"Software Testing","availableSeats":2,"capacity":2,"prerequisites":["MCS-1514"]} -> 201 1ms
+2026-11-24T02:17:28.812Z build=enrollmentnow-1.0.0-local seed=none POST /test/setup/student body={"name":"Playwright Student"} -> 201 0ms
+2026-11-24T02:17:28.815Z build=enrollmentnow-1.0.0-local seed=none GET /courses/MCS-5F79BA65 -> 200 1ms
+2026-11-24T02:17:28.818Z build=enrollmentnow-1.0.0-local seed=none GET /api/courses/MCS-5F79BA65 -> 200 1ms
+2026-11-24T02:17:28.904Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":49,"courseCode":"MCS-5F79BA65"} -> 422 result=MISSING_PREREQUISITE 1ms
+2026-11-24T02:17:28.930Z build=enrollmentnow-1.0.0-local seed=none GET /courses/MCS-5F79BA65 -> 304 0ms
+2026-11-24T02:17:28.933Z build=enrollmentnow-1.0.0-local seed=none GET /api/courses/MCS-5F79BA65 -> 304 0ms
+2026-11-24T02:17:28.943Z build=enrollmentnow-1.0.0-local seed=none POST /test/teardown body={"studentIds":[49],"courseCodes":["MCS-5F79BA65"]} -> 204 1ms
+2026-11-24T02:17:28.986Z build=enrollmentnow-1.0.0-local seed=none POST /test/setup/course body={"code":"MCS-39E13240","title":"Software Testing","availableSeats":3,"capacity":3,"prerequisites":[]} -> 201 0ms
+2026-11-24T02:17:28.987Z build=enrollmentnow-1.0.0-local seed=none POST /test/setup/student body={"name":"Playwright Student"} -> 201 0ms
+2026-11-24T02:17:28.990Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":50,"courseCode":"MCS-39E13240"} -> 201 result=registered 2ms
+2026-11-24T02:17:28.993Z build=enrollmentnow-1.0.0-local seed=none GET /courses/MCS-39E13240 -> 200 0ms
+2026-11-24T02:17:28.996Z build=enrollmentnow-1.0.0-local seed=none GET /api/courses/MCS-39E13240 -> 200 1ms
+2026-11-24T02:17:29.082Z build=enrollmentnow-1.0.0-local seed=none POST /api/registrations body={"studentId":50,"courseCode":"MCS-39E13240"} -> 409 result=ALREADY_REGISTERED 1ms
+2026-11-24T02:17:29.107Z build=enrollmentnow-1.0.0-local seed=none GET /courses/MCS-39E13240 -> 304 1ms
+2026-11-24T02:17:29.110Z build=enrollmentnow-1.0.0-local seed=none GET /api/courses/MCS-39E13240 -> 304 1ms
+2026-11-24T02:17:29.120Z build=enrollmentnow-1.0.0-local seed=none POST /test/teardown body={"studentIds":[50],"courseCodes":["MCS-39E13240"]} -> 204 1ms
+===== RUN 3: API tests with SEED_DEFECT=all (defects 1-4) =====
+2026-11-24T02:17:29.549Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":51,"courseCode":"MCS-4C103AE3"} -> 201 result=registered 5ms
+2026-11-24T02:17:29.559Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":52,"courseCode":"MCS-6BFA444B"} -> 500 result=INTERNAL_ERROR detail="new row for relation "courses" violates check constraint "courses_available_seats_check"" 3ms
+2026-11-24T02:17:29.563Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":53,"courseCode":"MCS-964B1F44"} -> 201 result=registered 2ms
+2026-11-24T02:17:29.567Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":54,"courseCode":"MCS-B8EEA6D8"} -> 500 result=INTERNAL_ERROR detail="duplicate key value violates unique constraint "registrations_student_id_course_code_key"" 2ms
+2026-11-24T02:17:29.570Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":55,"courseCode":"NOPE-16F02387"} -> 404 result=COURSE_NOT_FOUND 0ms
+2026-11-24T02:17:29.572Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"courseCode":"MCS-2514"} -> 400 result=INVALID_REQUEST 0ms
+===== RUN 4: Playwright UI tests with SEED_DEFECT=all (defects 1-4) =====
+2026-11-24T02:17:30.014Z build=enrollmentnow-1.0.0-local seed=all GET /courses/health -> 200 2ms
+2026-11-24T02:17:30.406Z build=enrollmentnow-1.0.0-local seed=all POST /test/setup/course body={"code":"MCS-7DE2D451","title":"Software Testing","availableSeats":2,"capacity":2,"prerequisites":[]} -> 201 12ms
+2026-11-24T02:17:30.410Z build=enrollmentnow-1.0.0-local seed=all POST /test/setup/student body={"name":"Playwright Student"} -> 201 1ms
+2026-11-24T02:17:30.414Z build=enrollmentnow-1.0.0-local seed=all GET /courses/MCS-7DE2D451 -> 200 0ms
+2026-11-24T02:17:30.418Z build=enrollmentnow-1.0.0-local seed=all GET /api/courses/MCS-7DE2D451 -> 200 1ms
+2026-11-24T02:17:30.506Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":56,"courseCode":"MCS-7DE2D451"} -> 201 result=registered 4ms
+2026-11-24T02:17:35.563Z build=enrollmentnow-1.0.0-local seed=all POST /test/teardown body={"studentIds":[56],"courseCodes":["MCS-7DE2D451"]} -> 204 3ms
+2026-11-24T02:17:35.875Z build=enrollmentnow-1.0.0-local seed=all POST /test/setup/course body={"code":"MCS-B16E1967","title":"Software Testing","availableSeats":0,"capacity":30,"prerequisites":[]} -> 201 1ms
+2026-11-24T02:17:35.879Z build=enrollmentnow-1.0.0-local seed=all POST /test/setup/student body={"name":"Playwright Student"} -> 201 1ms
+2026-11-24T02:17:35.882Z build=enrollmentnow-1.0.0-local seed=all GET /courses/MCS-B16E1967 -> 200 0ms
+2026-11-24T02:17:35.886Z build=enrollmentnow-1.0.0-local seed=all GET /api/courses/MCS-B16E1967 -> 200 1ms
+2026-11-24T02:17:35.973Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":57,"courseCode":"MCS-B16E1967"} -> 500 result=INTERNAL_ERROR detail="new row for relation "courses" violates check constraint "courses_available_seats_check"" 2ms
+2026-11-24T02:17:41.007Z build=enrollmentnow-1.0.0-local seed=all POST /test/teardown body={"studentIds":[57],"courseCodes":["MCS-B16E1967"]} -> 204 2ms
+2026-11-24T02:17:41.322Z build=enrollmentnow-1.0.0-local seed=all POST /test/setup/course body={"code":"MCS-756F1F77","title":"Software Testing","availableSeats":2,"capacity":2,"prerequisites":["MCS-1514"]} -> 201 1ms
+2026-11-24T02:17:41.325Z build=enrollmentnow-1.0.0-local seed=all POST /test/setup/student body={"name":"Playwright Student"} -> 201 0ms
+2026-11-24T02:17:41.329Z build=enrollmentnow-1.0.0-local seed=all GET /courses/MCS-756F1F77 -> 200 0ms
+2026-11-24T02:17:41.332Z build=enrollmentnow-1.0.0-local seed=all GET /api/courses/MCS-756F1F77 -> 200 0ms
+2026-11-24T02:17:41.420Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":58,"courseCode":"MCS-756F1F77"} -> 201 result=registered 2ms
+2026-11-24T02:17:46.455Z build=enrollmentnow-1.0.0-local seed=all POST /test/teardown body={"studentIds":[58],"courseCodes":["MCS-756F1F77"]} -> 204 2ms
+2026-11-24T02:17:46.769Z build=enrollmentnow-1.0.0-local seed=all POST /test/setup/course body={"code":"MCS-00F1F3C9","title":"Software Testing","availableSeats":3,"capacity":3,"prerequisites":[]} -> 201 1ms
+2026-11-24T02:17:46.772Z build=enrollmentnow-1.0.0-local seed=all POST /test/setup/student body={"name":"Playwright Student"} -> 201 0ms
+2026-11-24T02:17:46.776Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":59,"courseCode":"MCS-00F1F3C9"} -> 201 result=registered 3ms
+2026-11-24T02:17:46.779Z build=enrollmentnow-1.0.0-local seed=all GET /courses/MCS-00F1F3C9 -> 200 0ms
+2026-11-24T02:17:46.782Z build=enrollmentnow-1.0.0-local seed=all GET /api/courses/MCS-00F1F3C9 -> 200 0ms
+2026-11-24T02:17:46.869Z build=enrollmentnow-1.0.0-local seed=all POST /api/registrations body={"studentId":59,"courseCode":"MCS-00F1F3C9"} -> 500 result=INTERNAL_ERROR detail="duplicate key value violates unique constraint "registrations_student_id_course_code_key"" 1ms
+2026-11-24T02:17:51.903Z build=enrollmentnow-1.0.0-local seed=all POST /test/teardown body={"studentIds":[59],"courseCodes":["MCS-00F1F3C9"]} -> 204 3ms

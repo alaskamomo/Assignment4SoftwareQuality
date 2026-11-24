@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EnrollmentNow | Course</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; }
+    .ok { color: #11692b; } .err { color: #a11a1a; }
+    dialog { border: 1px solid #888; border-radius: 8px; padding: 1.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 id="title">Loading course...</h1>
+    <p data-testid="seat-count" id="seats"></p>
+
+    <label for="student-id">Student ID</label>
+    <input id="student-id" type="number" />
+    <button id="register" type="button">Register</button>
+
+    <p id="reg-status">Registration status: Not registered</p>
+    <!-- role=status makes the result announced to screen readers and easy to find by role -->
+    <p role="status" id="message"></p>
+  </main>
+
+  <dialog id="confirm" aria-labelledby="confirm-heading">
+    <h2 id="confirm-heading">Confirm registration</h2>
+    <p id="confirm-text"></p>
+    <button id="confirm-yes" type="button">Confirm</button>
+    <button id="confirm-no" type="button">Cancel</button>
+  </dialog>
+
+  <script>
+    const code = decodeURIComponent(location.pathname.split("/").pop());
+    const $ = (id) => document.getElementById(id);
+
+    async function loadCourse() {
+      const res = await fetch(`/api/courses/${encodeURIComponent(code)}`);
+      if (!res.ok) { $("title").textContent = "Course not found"; return; }
+      const c = await res.json();
+      $("title").textContent = `${c.code}: ${c.title}`;
+      $("seats").textContent = c.seatLabel;
+    }
+
+    $("register").addEventListener("click", () => {
+      $("confirm-text").textContent = `Register for ${code}?`;
+      $("confirm").showModal();
+    });
+    $("confirm-no").addEventListener("click", () => $("confirm").close());
+
+    $("confirm-yes").addEventListener("click", async () => {
+      $("confirm").close();
+      const res = await fetch("/api/registrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: Number($("student-id").value), courseCode: code }),
+      });
+      const body = await res.json();
+      $("message").textContent = body.message;
+      $("message").className = res.ok ? "ok" : "err";
+      if (res.ok) {
+        $("seats").textContent = body.seatLabel;
+        $("reg-status").textContent = "Registration status: Registered";
+        $("register").disabled = true;
+      }
+    });
+
+    loadCourse();
+  </script>
+</body>
+</html>
