@@ -78,7 +78,13 @@ if (fs.existsSync("playwright-artifacts")) {
   }
 }
 
+// The suggested structure also lists one screenshot and one trace directly in
+// test-results/, so Defect 1's evidence is copied there as well
+for (const f of ["screenshot.png", "trace.zip"]) {
+  if (fs.existsSync(`test-results/defect-1/${f}`)) fs.copyFileSync(`test-results/defect-1/${f}`, `test-results/${f}`);
+}
+
 const footer = `\n===== SUMMARY =====\n${summary.join("\n")}\n`;
 fs.appendFileSync(OUT, footer);
 console.log(footer);
-console.log("Saved: test-results/test-output.txt, server.log, and defect-1 to defect-4 folders");
+console.log("Saved: test-results/test-output.txt, server.log, screenshot.png, trace.zip, and defect-1 to defect-4 folders");

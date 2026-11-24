@@ -153,7 +153,7 @@ Call log:
   114 |   const studentId = await setupStudent(request);
   115 |   await loginViaApi(page, studentId);
   116 |   // Arrange the first registration through the API, so the UI step is the duplicate
-  117 |   const first = await page.request.post("/api/registrations", { data: { courseCode } });
+  117 |   const first = await page.request.post("/api/registrations", { data: { studentId, courseCode } });
   118 |   expect(first.status()).toBe(201);
   119 | 
   120 |   await page.goto(`/courses/${courseCode}`);

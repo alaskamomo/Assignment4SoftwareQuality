@@ -36,6 +36,7 @@
     const $ = (id) => document.getElementById(id);
 
     // The page needs a logged-in student; otherwise send them to the login page
+    let studentId = null;
     async function loadStudent() {
       const res = await fetch("/api/me");
       if (!res.ok) {
@@ -43,6 +44,7 @@
         return false;
       }
       const me = await res.json();
+      studentId = me.studentId;
       $("who").textContent = `Logged in as ${me.name} (Student ID ${me.studentId})`;
       return true;
     }
@@ -71,7 +73,7 @@
       const res = await fetch("/api/registrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courseCode: code }),
+        body: JSON.stringify({ studentId, courseCode: code }),
       });
       const body = await res.json();
       $("message").textContent = body.message;

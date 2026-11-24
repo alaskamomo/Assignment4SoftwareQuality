@@ -74,11 +74,16 @@ app.get("/api/me", async (req, res) => {
   res.json({ studentId: student.id, name: student.name });
 });
 
-// The student comes from the login session, not the request body, so one
-// student cannot register someone else
+// The request carries the student ID and course code (Part 2). The student ID
+// must match the logged-in student, so one student cannot register someone else.
 app.post("/api/registrations", requireLogin, async (req, res) => {
+  const { studentId, courseCode } = req.body ?? {};
+  if (Number.isInteger(studentId) && studentId !== req.student.id) {
+    return res.status(403).json({ error: "STUDENT_MISMATCH",
+      message: "You can only register yourself" });
+  }
   try {
-    const result = await registerStudent(req.student.id, req.body?.courseCode);
+    const result = await registerStudent(studentId, courseCode);
     res.status(201).json({ message: "Registration successful", ...result,
                            seatLabel: seatLabel(result.availableSeats) });
   } catch (err) {

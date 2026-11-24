@@ -9,7 +9,7 @@ This project contains API integration tests (Vitest + Supertest) and browser tes
 
 ## Where these tests fit
 
-In a test pyramid, unit tests sit at the bottom: many fast tests of single functions with no database or browser. Integration tests sit in the middle. Here they send real HTTP requests through Express, the registration service, and a real test database, so they catch problems in how the parts work together, like a rule that runs but whose result is ignored (Defect 2) or a database constraint firing (Defects 3 and 4). They are still fast (the 8 API tests run in about a second), so they carry most of the rule checking. UI tests sit at the top. They are slower and more fragile, so there are only a few, aimed at critical student journeys, and they check what the student actually sees, like the wording of the seat count (Defect 1). Each layer catches failures the others can miss, which is why every seeded defect is covered by one API test and one UI test.
+In a test pyramid, unit tests sit at the bottom: many fast tests of single functions with no database or browser. Integration tests sit in the middle. Here they send real HTTP requests through Express, the registration service, and a real test database, so they catch problems in how the parts work together, like a rule that runs but whose result is ignored (Defect 2) or a database constraint firing (Defects 3 and 4). They are still fast (the 9 API tests run in about a second), so they carry most of the rule checking. UI tests sit at the top. They are slower and more fragile, so there are only a few, aimed at critical student journeys, and they check what the student actually sees, like the wording of the seat count (Defect 1). Each layer catches failures the others can miss, which is why every seeded defect is covered by one API test and one UI test.
 
 ## Project structure
 
@@ -27,7 +27,7 @@ assignment/
   scripts/migrate.js           applies migrations and records them in schema_migrations
   scripts/run-all.js           runs everything (npm run test:all) and collects the evidence
   tests/
-    registration.integration.test.js   1 success + 7 negative API tests (incl. not logged in, wrong password)
+    registration.integration.test.js   1 success + 8 negative API tests (incl. not logged in, wrong student, wrong password)
     registration.spec.js               4 Playwright UI tests (success, full, prerequisite, duplicate)
     testData.js                        setup, login, and cleanup helpers for the API tests
     globalSetup.js                     migrates and prints build/migration level (Vitest)
@@ -35,6 +35,7 @@ assignment/
   test-results/
     test-output.txt            output from all four runs (2 normal, 2 with all seeded defects on)
     server.log                 one line per API request from the app, split by run
+    screenshot.png, trace.zip  copy of Defect 1's UI failure evidence (the files named in the suggested structure)
     defect-1/ ... defect-4/    for each failed UI test: screenshot.png, trace.zip, error-context.md
   defect-report.md             write-ups for all four seeded defects
   vitest.config.js
@@ -79,7 +80,7 @@ npx playwright show-trace test-results/defect-1/trace.zip
 
 ## Login
 
-Students log in at `/login` with their student ID and password. Opening a course page while logged out redirects to the login page and back again afterward. The server keeps a session in the `sessions` table and sends an HttpOnly `session` cookie. `POST /api/registrations` reads the student from that session and ignores any `studentId` in the request body, so one student cannot register another. Without a session it returns 401 `NOT_LOGGED_IN`. Passwords are stored as salted scrypt hashes and are masked as `***` in the server log.
+Students log in at `/login` with their student ID and password. Opening a course page while logged out redirects to the login page and back again afterward. The server keeps a session in the `sessions` table and sends an HttpOnly `session` cookie. `POST /api/registrations` takes the student ID and course code in the request body, as Part 2 describes, and the student ID must match the logged-in student. A different student ID returns 403 `STUDENT_MISMATCH`, so one student cannot register another. Without a session it returns 401 `NOT_LOGGED_IN`. Passwords are stored as salted scrypt hashes and are masked as `***` in the server log.
 
 Test students are created with the password `test-password`. The API tests log in through `POST /api/login` with a Supertest agent that keeps the cookie. The first UI test logs in through the real login form. The other UI tests log in with `page.request`, which shares cookies with the browser page, so they stay focused on the registration step.
 
@@ -122,12 +123,13 @@ When `LOG_FILE` is set, the app writes one line per request with the time, build
 
 | Test | Status | Side-effect assertions |
 |---|---|---|
-| Eligible student registers (2 seats) | 201 | exactly 1 registration, seats 2 to 1, 1 audit row |
-| Course full | 409 | no registration, seats still 0, no new audit rows |
+| Eligible student registers (2 seats) | 201 | seats checked at 2 before, exactly 1 registration, seats 2 to 1, 1 audit row |
+| Course full (capacity 30, 0 left) | 409 | no registration, seats still 0, capacity still 30, no new audit rows |
 | Missing prerequisite | 422 | reason names `MCS-1514`, no registration, seats still 2 |
 | Duplicate registration | 409 | still only 1 registration, seats unchanged |
 | Unknown course | 404 | other course's seats unchanged, no audit or registration rows |
 | Malformed body (logged in, no course code) | 400 | error code `INVALID_REQUEST` |
+| Different student ID than the one logged in | 403 | `STUDENT_MISMATCH`, no registration for either student, seats still 2, no new audit rows |
 | Not logged in | 401 | `NOT_LOGGED_IN`, no registration, seats still 2, no new audit rows |
 | Wrong password | 401 | `INVALID_CREDENTIALS`, no cookie set, no session row |
 | UI: log in through the form, then register for available course | | redirected to login, "Logged in as ..." shown, success message, "1 seat available", status "Registered", seat count still 1 after reload |
@@ -149,7 +151,7 @@ Locators follow the required order: `getByRole` for buttons, the dialog, the hea
 
 ## Environment used for the submitted results
 
-Results in `test-results/` are from `npm run test:all` on 2026-11-24 at 17:11 EST.
+Results in `test-results/` are from `npm run test:all` on 2026-11-24 at 17:20 EST.
 
 - Build: enrollmentnow-1.0.0-local
 - OS: macOS 26.6 (Darwin 25.6.0), Apple Silicon MacBook Air

@@ -114,7 +114,7 @@ test("student who is already registered sees a duplicate message", async ({ page
   const studentId = await setupStudent(request);
   await loginViaApi(page, studentId);
   // Arrange the first registration through the API, so the UI step is the duplicate
-  const first = await page.request.post("/api/registrations", { data: { courseCode } });
+  const first = await page.request.post("/api/registrations", { data: { studentId, courseCode } });
   expect(first.status()).toBe(201);
 
   await page.goto(`/courses/${courseCode}`);
