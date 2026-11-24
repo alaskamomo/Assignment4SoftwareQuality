@@ -3,27 +3,26 @@ import { afterAll, afterEach, describe, expect, test } from "vitest";
 import { app } from "../src/app.js";
 import {
   db, createStudent, createCourse, createRegistration, cleanupTestData,
-  countRegistrations, seatsFor, auditCount, uniqueCode, loginAs,
+  countRegistrations, seatsFor, auditCount, uniqueCode, loginAs, waitlistCount,
 } from "./testData.js";
 
-// Each test arranges its own data, so cleanup after each one is enough for isolation
+// Each test makes its own data, cleanup after each one
 afterEach(cleanupTestData);
 afterAll(() => db.end());
 
 describe("POST /api/registrations (success)", () => {
   test("registers an eligible student and decrements the seat count", async () => {
-    // Arrange: eligible student (has the prerequisite) and a course with 2 seats
+    // eligible student, course with 2 seats
     const studentId = await createStudent({ completed: ["MCS-1514"] });
     const courseCode = await createCourse({ availableSeats: 2, prerequisites: ["MCS-1514"] });
-    expect(await seatsFor(courseCode)).toBe(2); // known starting seat count
+    expect(await seatsFor(courseCode)).toBe(2);
 
-    // Act: log in, then send a real HTTP request through Express, service, and the test database
+    // log in and register
     const agent = await loginAs(studentId);
     const response = await agent
       .post("/api/registrations")
       .send({ studentId, courseCode });
 
-    // Assert the response
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({
       message: "Registration successful",
@@ -31,11 +30,11 @@ describe("POST /api/registrations (success)", () => {
       courseCode,
       status: "registered",
       availableSeats: 1,
-      seatLabel: "1 seat available", // text the student will see
+      seatLabel: "1 seat available",
     });
     expect(response.body.registrationId).toEqual(expect.any(Number));
 
-    // Assert the persistent effects, not just what the API claims
+    // check the database too
     expect(await countRegistrations(studentId, courseCode)).toBe(1);
     expect(await seatsFor(courseCode)).toBe(1);
 
@@ -58,9 +57,9 @@ describe("POST /api/registrations (negative cases)", () => {
     expect(response.status).toBe(409);
     expect(response.body).toMatchObject({ error: "COURSE_FULL", message: "Course is full" });
     expect(await countRegistrations(studentId, courseCode)).toBe(0);
-    expect(await seatsFor(courseCode)).toBe(0); // available seats unchanged, never negative
+    expect(await seatsFor(courseCode)).toBe(0);
     const capacity = await db.query("SELECT capacity FROM courses WHERE code = $1", [courseCode]);
-    expect(capacity.rows[0].capacity).toBe(30); // capacity unchanged
+    expect(capacity.rows[0].capacity).toBe(30);
     expect(await auditCount()).toBe(auditBefore);
   });
 
@@ -90,12 +89,12 @@ describe("POST /api/registrations (negative cases)", () => {
     expect(response.status).toBe(409);
     expect(response.body.error).toBe("ALREADY_REGISTERED");
     expect(await countRegistrations(studentId, courseCode)).toBe(1);
-    expect(await seatsFor(courseCode)).toBe(2); // second request did not take another seat
+    expect(await seatsFor(courseCode)).toBe(2);
   });
 
   test("unknown course returns 404 without touching seats or audit records", async () => {
     const studentId = await createStudent();
-    const otherCourse = await createCourse({ availableSeats: 2 }); // bystander course
+    const otherCourse = await createCourse({ availableSeats: 2 }); // other course that shouldn't change
     const auditBefore = await auditCount();
     const missingCode = uniqueCode("NOPE");
 
@@ -127,7 +126,7 @@ describe("POST /api/registrations (negative cases)", () => {
     const courseCode = await createCourse({ availableSeats: 2 });
     const auditBefore = await auditCount();
 
-    // No login: even a valid studentId in the body must not be trusted
+    // no login
     const response = await request(app).post("/api/registrations").send({ studentId, courseCode });
 
     expect(response.status).toBe(401);
@@ -143,7 +142,7 @@ describe("POST /api/registrations (negative cases)", () => {
     const courseCode = await createCourse({ availableSeats: 2 });
     const auditBefore = await auditCount();
 
-    // Logged in as one student, but the body names another
+    // logged in as one student, sending another's ID
     const agent = await loginAs(studentId);
     const response = await agent.post("/api/registrations")
       .send({ studentId: otherStudent, courseCode });
@@ -166,5 +165,59 @@ describe("POST /api/registrations (negative cases)", () => {
     const sessions = await db.query("SELECT count(*)::int AS n FROM sessions WHERE student_id = $1",
                                     [studentId]);
     expect(sessions.rows[0].n).toBe(0);
+  });
+});
+
+describe("POST /api/waitlist", () => {
+  test("student joins the waitlist for a full course without taking a seat", async () => {
+    const studentId = await createStudent();
+    const courseCode = await createCourse({ capacity: 30, availableSeats: 0 });
+
+    const agent = await loginAs(studentId);
+    const response = await agent.post("/api/waitlist").send({ studentId, courseCode });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      message: "Added to waitlist (position 1)",
+      studentId,
+      courseCode,
+      status: "waitlisted",
+      position: 1,
+    });
+    expect(await waitlistCount(studentId, courseCode)).toBe(1);
+    expect(await countRegistrations(studentId, courseCode)).toBe(0);
+    expect(await seatsFor(courseCode)).toBe(0);
+    const audit = await db.query(
+      "SELECT action FROM audit_log WHERE student_id = $1 AND course_code = $2",
+      [studentId, courseCode]);
+    expect(audit.rows).toEqual([{ action: "WAITLISTED" }]);
+  });
+
+  test("joining the same waitlist twice returns 409 and keeps one entry", async () => {
+    const studentId = await createStudent();
+    const courseCode = await createCourse({ capacity: 30, availableSeats: 0 });
+    const agent = await loginAs(studentId);
+    await agent.post("/api/waitlist").send({ studentId, courseCode });
+
+    const response = await agent.post("/api/waitlist").send({ studentId, courseCode });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error).toBe("ALREADY_ON_WAITLIST");
+    expect(await waitlistCount(studentId, courseCode)).toBe(1);
+  });
+
+  test("course with open seats returns 409 and adds nothing to the waitlist", async () => {
+    const studentId = await createStudent();
+    const courseCode = await createCourse({ availableSeats: 2 });
+    const auditBefore = await auditCount();
+
+    const agent = await loginAs(studentId);
+    const response = await agent.post("/api/waitlist").send({ studentId, courseCode });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error).toBe("COURSE_NOT_FULL");
+    expect(await waitlistCount(studentId, courseCode)).toBe(0);
+    expect(await seatsFor(courseCode)).toBe(2);
+    expect(await auditCount()).toBe(auditBefore);
   });
 });

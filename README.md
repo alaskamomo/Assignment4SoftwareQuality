@@ -9,25 +9,26 @@ This project contains API integration tests (Vitest + Supertest) and browser tes
 
 ## Where these tests fit
 
-In a test pyramid, unit tests sit at the bottom: many fast tests of single functions with no database or browser. Integration tests sit in the middle. Here they send real HTTP requests through Express, the registration service, and a real test database, so they catch problems in how the parts work together, like a rule that runs but whose result is ignored (Defect 2) or a database constraint firing (Defects 3 and 4). They are still fast (the 9 API tests run in about a second), so they carry most of the rule checking. UI tests sit at the top. They are slower and more fragile, so there are only a few, aimed at critical student journeys, and they check what the student actually sees, like the wording of the seat count (Defect 1). Each layer catches failures the others can miss, which is why every seeded defect is covered by one API test and one UI test.
+In a test pyramid, unit tests sit at the bottom: many fast tests of single functions with no database or browser. Integration tests sit in the middle. Here they send real HTTP requests through Express, the registration service, and a real test database, so they catch problems in how the parts work together, like a rule that runs but whose result is ignored (Defect 2) or a database constraint firing (Defects 3 and 4). They are still fast (the 12 API tests run in about a second), so they carry most of the rule checking. UI tests sit at the top. They are slower and more fragile, so there are only a few, aimed at critical student journeys, and they check what the student actually sees, like the wording of the seat count (Defect 1). Each layer catches failures the others can miss, which is why every seeded defect is covered by one API test and one UI test.
 
 ## Project structure
 
 ```
 assignment/
   src/                         minimal EnrollmentNow app built as the system under test (Express)
-    app.js                     routes: /api/login, /api/logout, /api/me, /api/registrations,
+    app.js                     routes: /api/login, /api/logout, /api/me, /api/registrations, /api/waitlist,
                                /api/courses/:code, /login, /courses/:code
     auth.js                    student login: scrypt password hashes, session cookie, requireLogin
     registrationService.js     capacity, prerequisite, duplicate rules (one transaction)
+    waitlistService.js         join the waitlist for a full course (no seat taken)
     testRoutes.js              /test/setup/* and /test/teardown (only when NODE_ENV=test)
     public/login.html          login page (student ID + password)
     public/course.html         student course page (requires login)
-  db/migrations/               001_init.sql, 002_audit_log.sql, 003_student_login.sql
+  db/migrations/               001_init.sql, 002_audit_log.sql, 003_student_login.sql, 004_waitlist.sql
   scripts/migrate.js           applies migrations and records them in schema_migrations
   scripts/run-all.js           runs everything (npm run test:all) and collects the evidence
   tests/
-    registration.integration.test.js   1 success + 8 negative API tests (incl. not logged in, wrong student, wrong password)
+    registration.integration.test.js   1 success + 8 negative registration tests, plus 3 waitlist tests
     registration.spec.js               4 Playwright UI tests (success, full, prerequisite, duplicate)
     testData.js                        setup, login, and cleanup helpers for the API tests
     globalSetup.js                     migrates and prints build/migration level (Vitest)
@@ -78,6 +79,10 @@ SEED_DEFECT=all npx playwright test --ui    # watch the four UI failures step by
 npx playwright show-trace test-results/defect-1/trace.zip
 ```
 
+## Waitlist
+
+The scenario says a student can join a waitlist when a course is full. When registration returns 409 "Course is full", the course page shows a "Join waitlist" button. Clicking it calls `POST /api/waitlist` with the student ID and course code, which adds the student to the `waitlist` table and returns their position, for example "Added to waitlist (position 1)". Joining the waitlist never takes a seat. The same login and student ID rules apply as for registration. A student can't join twice (409 `ALREADY_ON_WAITLIST`), can't join if the course still has seats (409 `COURSE_NOT_FULL`), and still needs the prerequisites (422).
+
 ## Login
 
 Students log in at `/login` with their student ID and password. Opening a course page while logged out redirects to the login page and back again afterward. The server keeps a session in the `sessions` table and sends an HttpOnly `session` cookie. `POST /api/registrations` takes the student ID and course code in the request body, as Part 2 describes, and the student ID must match the logged-in student. A different student ID returns 403 `STUDENT_MISMATCH`, so one student cannot register another. Without a session it returns 401 `NOT_LOGGED_IN`. Passwords are stored as salted scrypt hashes and are masked as `***` in the server log.
@@ -117,7 +122,7 @@ When `LOG_FILE` is set, the app writes one line per request with the time, build
 - Known state per test: each test creates its own student (with a known password), logs in, and creates its own course, seat count, prerequisites, and (for the duplicate case) existing registration before it acts.
 - Unique identifiers: course codes are generated as `MCS-<8 random hex chars>` and student IDs come from a sequence, so parallel tests never touch each other's rows.
 - Cleanup: the API tests call `cleanupTestData()` in `afterEach`, and the UI tests call `POST /test/teardown` in `afterEach`. Both delete only the rows that test created. Registrations, prerequisites, sessions, and completed courses cascade on delete.
-- Build and migration level: both suites print a line like `[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=003_student_login` at the start of the run. Set `BUILD_ID` to label a real build.
+- Build and migration level: both suites print a line like `[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=004_waitlist` at the start of the run. Set `BUILD_ID` to label a real build.
 
 ## What the tests cover
 
@@ -132,8 +137,11 @@ When `LOG_FILE` is set, the app writes one line per request with the time, build
 | Different student ID than the one logged in | 403 | `STUDENT_MISMATCH`, no registration for either student, seats still 2, no new audit rows |
 | Not logged in | 401 | `NOT_LOGGED_IN`, no registration, seats still 2, no new audit rows |
 | Wrong password | 401 | `INVALID_CREDENTIALS`, no cookie set, no session row |
+| Waitlist: join a full course | 201 | "Added to waitlist (position 1)", 1 waitlist row, no registration, seats still 0, 1 `WAITLISTED` audit row |
+| Waitlist: join twice | 409 | `ALREADY_ON_WAITLIST`, still only 1 waitlist row |
+| Waitlist: course has open seats | 409 | `COURSE_NOT_FULL`, no waitlist row, seats still 2, no new audit rows |
 | UI: log in through the form, then register for available course | | redirected to login, "Logged in as ..." shown, success message, "1 seat available", status "Registered", seat count still 1 after reload |
-| UI: course full (capacity 30, 0 left) | | "Course is full" shown, seat count and status unchanged |
+| UI: course full (capacity 30, 0 left), then join the waitlist | | "Course is full" shown with seats and status unchanged, then "Join waitlist" shows "Added to waitlist (position 1)" and status "Waitlisted (position 1)", seats still 0 after reload |
 | UI: missing prerequisite | | "Missing prerequisite: MCS-1514" shown, status "Not registered", seats still 2 after reload |
 | UI: duplicate (first registration arranged through the API) | | "Student is already registered for this course" shown, seats still 2 after reload |
 
@@ -143,7 +151,7 @@ Locators follow the required order: `getByRole` for buttons, the dialog, the hea
 
 - EnrollmentNow is a hypothetical system in the assignment, so I built a minimal version of it as the system under test. It follows the spec directly: endpoint `POST /api/registrations`, the status codes in the Part 3 table, and the page text from the Part 4 starter. It is intentionally small so the focus stays on the tests.
 - Course codes use a hyphen (`MCS-2514`) so they work in URLs.
-- When a course is full the API returns 409 with `canJoinWaitlist: true`. Actually joining the waitlist was out of scope for these tests.
+- When a course is full the API returns 409 with `canJoinWaitlist: true`, and the page then offers "Join waitlist". Moving students off the waitlist when a seat opens up is not built, since no part of the assignment asks for it.
 - The check order is: course exists, student exists, not already registered, prerequisites met, seats available.
 - The Part 5 failures come from four defects I seeded on purpose (see "Seeded defects" above).
 - Login uses the student ID and a password. There is no sign-up page; students and passwords are created through the test setup routes. Sessions do not expire, since that was out of scope.
@@ -151,11 +159,11 @@ Locators follow the required order: `getByRole` for buttons, the dialog, the hea
 
 ## Environment used for the submitted results
 
-Results in `test-results/` are from `npm run test:all` on 2026-11-24 at 17:20 EST.
+Results in `test-results/` are from `npm run test:all` on 2026-11-24 at 17:41 EST.
 
 - Build: enrollmentnow-1.0.0-local
 - OS: macOS 26.6 (Darwin 25.6.0), Apple Silicon MacBook Air
 - Node: v26.13.1
-- PostgreSQL: 16.16 (Homebrew), database `enrollmentnow_test`, migration level `003_student_login`
+- PostgreSQL: 16.16 (Homebrew), database `enrollmentnow_test`, migration level `004_waitlist`
 - Browser: Chromium 153.0.8010.12 (Playwright 1.63.0, headless)
 - Vitest 5.1.1, Supertest 7.3.2, Express 4.22.3

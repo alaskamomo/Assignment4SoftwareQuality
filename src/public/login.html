@@ -22,13 +22,13 @@
 
       <button type="submit">Log in</button>
     </form>
-    <!-- role=alert so a failed login is announced and easy to find by role -->
+    <!-- login errors show here -->
     <p role="alert" id="error" class="err"></p>
   </main>
 
   <script>
     const $ = (id) => document.getElementById(id);
-    // After logging in, go back to the page the student came from
+    // go back to the course page after login
     const next = new URLSearchParams(location.search).get("next") || "/";
 
     $("login-form").addEventListener("submit", async (event) => {

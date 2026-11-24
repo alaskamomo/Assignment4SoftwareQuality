@@ -1,11 +1,5 @@
-// Runs every test case on the normal build and with all four seeded defects, and saves the evidence:
-//   RUN 1  API tests, normal build             (all 6 should pass)
-//   RUN 2  UI tests, normal build              (all 4 should pass)
-//   RUN 3  API tests, SEED_DEFECT=all          (4 should fail, one per defect)
-//   RUN 4  UI tests,  SEED_DEFECT=all          (all 4 should fail, one per defect)
-// Output goes to test-results/test-output.txt and test-results/server.log, and each
-// failed UI test's screenshot, trace, and page snapshot go to test-results/defect-N/.
-// Works on Windows, macOS, and Linux:  npm run test:all
+// npm run test:all
+// Runs API and UI tests normally, then with all 4 bugs on, and saves everything in test-results/
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -13,7 +7,7 @@ import os from "node:os";
 const OUT = "test-results/test-output.txt";
 const LOG = "test-results/server.log";
 
-// Which UI test catches which defect (matched against Playwright's artifact folder names)
+// Which UI test goes with which defect
 const DEFECT_FOLDERS = [
   { match: "available-course", dir: "defect-1" },   // seat-label
   { match: "course-is-missing", dir: "defect-2" },  // skip-prereq
@@ -21,7 +15,7 @@ const DEFECT_FOLDERS = [
   { match: "course-is-full", dir: "defect-4" },     // wrong-seat-column
 ];
 
-// Start from a clean results folder each time
+// start fresh
 fs.rmSync("test-results", { recursive: true, force: true });
 fs.rmSync("playwright-artifacts", { recursive: true, force: true });
 fs.mkdirSync("test-results", { recursive: true });
@@ -36,7 +30,7 @@ const runs = [
   { name: "RUN 4: Playwright UI tests with SEED_DEFECT=all (defects 1-4)", cmd: "npx playwright test", seed: "all", expectFailed: 4 },
 ];
 
-// Pull the number of failed tests out of Vitest or Playwright output
+// count failed tests in the output
 function failedCount(text) {
   const m = text.match(/Tests\s+(\d+) failed/) || text.match(/^\s*(\d+) failed\s*$/m);
   return m ? Number(m[1]) : 0;
@@ -53,7 +47,7 @@ for (const run of runs) {
     encoding: "utf8",
     env: { ...process.env, SEED_DEFECT: run.seed, FORCE_COLOR: "0" },
   });
-  // Strip color codes so the saved file is plain text
+  // remove color codes
   const text = (result.stdout + result.stderr).replace(/\x1b\[[0-9;]*m/g, "");
   process.stdout.write(text);
   fs.appendFileSync(OUT, text);
@@ -63,7 +57,7 @@ for (const run of runs) {
   summary.push(`${ok ? "OK  " : "!!  "} ${run.name}: ${failed} failed (expected ${run.expectFailed})`);
 }
 
-// Copy each failed UI test's evidence into its defect folder
+// copy each failure into its defect folder
 if (fs.existsSync("playwright-artifacts")) {
   for (const folder of fs.readdirSync("playwright-artifacts")) {
     const target = DEFECT_FOLDERS.find((d) => folder.includes(d.match));
@@ -78,8 +72,7 @@ if (fs.existsSync("playwright-artifacts")) {
   }
 }
 
-// The suggested structure also lists one screenshot and one trace directly in
-// test-results/, so Defect 1's evidence is copied there as well
+// also put one screenshot and trace at the top of test-results/
 for (const f of ["screenshot.png", "trace.zip"]) {
   if (fs.existsSync(`test-results/defect-1/${f}`)) fs.copyFileSync(`test-results/defect-1/${f}`, `test-results/${f}`);
 }

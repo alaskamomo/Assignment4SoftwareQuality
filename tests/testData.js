@@ -6,7 +6,7 @@ import { hashPassword } from "../src/auth.js";
 
 export const TEST_PASSWORD = "test-password";
 
-// Safety guard: refuse to run unless the database name ends in _test
+// Only run against a database ending in _test
 const dbName = new URL(DATABASE_URL).pathname.slice(1);
 if (!dbName.endsWith("_test")) {
   throw new Error(`Refusing to run tests against "${dbName}". Use a database ending in _test.`);
@@ -14,8 +14,7 @@ if (!dbName.endsWith("_test")) {
 
 export const db = pool;
 
-// Every test gets its own course codes and student rows, so files can run in
-// parallel and no test depends on data left behind by another one.
+// Track what each test makes so it can be cleaned up
 const created = { studentIds: [], courseCodes: [] };
 
 export function uniqueCode(prefix = "MCS") {
@@ -48,8 +47,7 @@ export async function createCourse({ code = uniqueCode(), title = "Software Test
   return code;
 }
 
-// Logs the student in through the real login endpoint and returns a supertest
-// agent that keeps the session cookie for the requests that follow
+// Log in and keep the cookie for later requests
 export async function loginAs(studentId) {
   const agent = request.agent(app);
   const res = await agent.post("/api/login").send({ studentId, password: TEST_PASSWORD });
@@ -57,7 +55,7 @@ export async function loginAs(studentId) {
   return agent;
 }
 
-// Arrange a registration directly in the database (used for the duplicate case)
+// Registration straight in the DB (for the duplicate test)
 export async function createRegistration(studentId, courseCode) {
   await db.query("INSERT INTO registrations (student_id, course_code) VALUES ($1, $2)",
                  [studentId, courseCode]);
@@ -65,8 +63,7 @@ export async function createRegistration(studentId, courseCode) {
                  [courseCode]);
 }
 
-// Removes only the rows this test created. Registrations, prerequisites,
-// sessions and completed courses cascade from students and courses.
+// Delete what the test made (the rest cascades)
 export async function cleanupTestData() {
   const { studentIds, courseCodes } = created;
   await db.query("DELETE FROM audit_log WHERE student_id = ANY($1) OR course_code = ANY($2)",
@@ -77,7 +74,14 @@ export async function cleanupTestData() {
   created.courseCodes = [];
 }
 
-// Small query helpers so assertions read clearly
+export async function waitlistCount(studentId, courseCode) {
+  const { rows } = await db.query(
+    "SELECT count(*)::int AS n FROM waitlist WHERE student_id = $1 AND course_code = $2",
+    [studentId, courseCode]);
+  return rows[0].n;
+}
+
+// Query helpers
 export async function countRegistrations(studentId, courseCode) {
   const { rows } = await db.query(
     "SELECT count(*)::int AS n FROM registrations WHERE student_id = $1 AND course_code = $2",

@@ -2,7 +2,7 @@ import { migrate } from "../scripts/migrate.js";
 import { pool, BUILD_ID, DATABASE_URL, migrationLevel } from "../src/db.js";
 import { chromium } from "@playwright/test";
 
-// Same environment banner as the API suite, plus the browser version
+// Migrate and print build, migration and browser version
 export default async function globalSetup() {
   await migrate();
   const level = await migrationLevel();

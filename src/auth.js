@@ -3,7 +3,7 @@ import { pool } from "./db.js";
 
 const COOKIE = "session";
 
-// Passwords are stored as "salt:hash" using scrypt, never as plain text
+// Stored as salt:hash with scrypt
 export function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(password, salt, 32).toString("hex");
@@ -17,7 +17,7 @@ function checkPassword(password, stored) {
   return crypto.timingSafeEqual(attempt, Buffer.from(hash, "hex"));
 }
 
-// Reads the session cookie without adding a cookie-parser dependency
+// Pull the session token out of the cookie header
 function sessionToken(req) {
   const header = req.headers.cookie ?? "";
   for (const part of header.split(";")) {
@@ -27,7 +27,7 @@ function sessionToken(req) {
   return null;
 }
 
-// Returns { id, name } for the logged-in student, or null
+// Logged-in student or null
 export async function currentStudent(req) {
   const token = sessionToken(req);
   if (!token) return null;
@@ -37,7 +37,7 @@ export async function currentStudent(req) {
   return rows[0] ?? null;
 }
 
-// Express middleware: rejects the request with 401 unless a student is logged in
+// 401 if nobody is logged in
 export async function requireLogin(req, res, next) {
   const student = await currentStudent(req);
   if (!student) {
@@ -54,7 +54,7 @@ export async function login(req, res) {
   }
   const { rows } = await pool.query(
     "SELECT id, name, password_hash FROM students WHERE id = $1", [studentId]);
-  // Same message for an unknown ID and a wrong password, so IDs cannot be guessed
+  // same message either way so IDs can't be guessed
   if (rows.length === 0 || !checkPassword(password, rows[0].password_hash)) {
     return res.status(401).json({ error: "INVALID_CREDENTIALS", message: "Student ID or password is incorrect" });
   }

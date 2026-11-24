@@ -1,6 +1,6 @@
 import { pool, seeded } from "./db.js";
 
-// Error type that carries the HTTP status the route should return
+// Error with the HTTP status to send back
 export class RegistrationError extends Error {
   constructor(status, code, message, details = {}) {
     super(message);
@@ -10,8 +10,7 @@ export class RegistrationError extends Error {
   }
 }
 
-// Registers a student for a course. All checks and writes run in one transaction,
-// and the course row is locked so two requests cannot take the same last seat.
+// One transaction, course row locked so two people can't grab the last seat
 export async function registerStudent(studentId, courseCode) {
   if (!Number.isInteger(studentId) || typeof courseCode !== "string" || courseCode.trim() === "") {
     throw new RegistrationError(400, "INVALID_REQUEST", "studentId (integer) and courseCode are required");
@@ -38,13 +37,12 @@ export async function registerStudent(studentId, courseCode) {
       "SELECT id FROM registrations WHERE student_id = $1 AND course_code = $2",
       [studentId, courseCode]
     );
-    // SEEDED DEFECT 3 (skip-duplicate): the duplicate check is skipped, so the insert
-    // hits the database UNIQUE constraint and the student gets a 500 error instead of 409
+    // SEEDED DEFECT 3 (skip-duplicate): skips this check, DB throws a 500
     if (existing.rowCount > 0 && !seeded("skip-duplicate")) {
       throw new RegistrationError(409, "ALREADY_REGISTERED", "Student is already registered for this course");
     }
 
-    // Prerequisites the student has not completed yet
+    // prereqs the student is missing
     const missing = await client.query(
       `SELECT p.prerequisite_code FROM prerequisites p
        WHERE p.course_code = $1
@@ -53,17 +51,14 @@ export async function registerStudent(studentId, courseCode) {
        ORDER BY p.prerequisite_code`,
       [courseCode, studentId]
     );
-    // SEEDED DEFECT 2 (skip-prereq): the prerequisite result is ignored, so an
-    // ineligible student is registered and takes a seat
+    // SEEDED DEFECT 2 (skip-prereq): ignores missing prereqs
     if (missing.rowCount > 0 && !seeded("skip-prereq")) {
       const codes = missing.rows.map((r) => r.prerequisite_code);
       throw new RegistrationError(422, "MISSING_PREREQUISITE",
         `Missing prerequisite: ${codes.join(", ")}`, { missingPrerequisites: codes });
     }
 
-    // SEEDED DEFECT 4 (wrong-seat-column): checks total capacity instead of available
-    // seats, so a full course passes the check and the seat update breaks the
-    // available_seats >= 0 constraint, giving a 500 instead of 409 "Course is full"
+    // SEEDED DEFECT 4 (wrong-seat-column): checks capacity instead of seats left
     const seatsLeft = seeded("wrong-seat-column")
       ? course.rows[0].capacity
       : course.rows[0].available_seats;

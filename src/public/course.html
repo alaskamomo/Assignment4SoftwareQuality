@@ -18,9 +18,11 @@
     <p data-testid="seat-count" id="seats"></p>
 
     <button id="register" type="button">Register</button>
+    <!-- only shows when the course is full -->
+    <button id="join-waitlist" type="button" hidden>Join waitlist</button>
 
     <p id="reg-status">Registration status: Not registered</p>
-    <!-- role=status makes the result announced to screen readers and easy to find by role -->
+    <!-- result message -->
     <p role="status" id="message"></p>
   </main>
 
@@ -35,7 +37,7 @@
     const code = decodeURIComponent(location.pathname.split("/").pop());
     const $ = (id) => document.getElementById(id);
 
-    // The page needs a logged-in student; otherwise send them to the login page
+    // not logged in -> go to login
     let studentId = null;
     async function loadStudent() {
       const res = await fetch("/api/me");
@@ -78,9 +80,27 @@
       const body = await res.json();
       $("message").textContent = body.message;
       $("message").className = res.ok ? "ok" : "err";
+      // show waitlist button if full
+      $("join-waitlist").hidden = !body.canJoinWaitlist;
       if (res.ok) {
         $("seats").textContent = body.seatLabel;
         $("reg-status").textContent = "Registration status: Registered";
+        $("register").disabled = true;
+      }
+    });
+
+    $("join-waitlist").addEventListener("click", async () => {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, courseCode: code }),
+      });
+      const body = await res.json();
+      $("message").textContent = body.message;
+      $("message").className = res.ok ? "ok" : "err";
+      if (res.ok) {
+        $("reg-status").textContent = `Registration status: Waitlisted (position ${body.position})`;
+        $("join-waitlist").hidden = true;
         $("register").disabled = true;
       }
     });

@@ -7,7 +7,7 @@
 # Test info
 
 - Name: registration.spec.js >> student without the prerequisite sees which course is missing
-- Location: tests/registration.spec.js:94:1
+- Location: tests/registration.spec.js:100:1
 
 # Error details
 
@@ -36,14 +36,8 @@ Call log:
 # Test source
 
 ```ts
-  6   | 
-  7   | test.beforeEach(() => { created = { studentIds: [], courseCodes: [] }; });
-  8   | 
-  9   | test.afterEach(async ({ request }) => {
-  10  |   await request.post("/test/teardown", { data: created });
-  11  | });
   12  | 
-  13  | // Arrange data through the test-only API instead of clicking through admin screens
+  13  | // Set up data through the test API
   14  | async function setupCourse(request, { availableSeats, capacity = availableSeats, prerequisites = [] }) {
   15  |   const code = `MCS-${randomUUID().slice(0, 8).toUpperCase()}`;
   16  |   const res = await request.post("/test/setup/course", {
@@ -64,103 +58,109 @@ Call log:
   31  |   return id;
   32  | }
   33  | 
-  34  | // Fast login for tests whose focus is not the login screen. page.request shares
-  35  | // cookies with the browser page, so the page is logged in afterwards.
-  36  | async function loginViaApi(page, studentId) {
-  37  |   const res = await page.request.post("/api/login", { data: { studentId, password: PASSWORD } });
-  38  |   expect(res.status()).toBe(200);
-  39  | }
-  40  | 
-  41  | test("student registers for an available course", async ({ page, request }) => {
-  42  |   const courseCode = await setupCourse(request, { availableSeats: 2 });
-  43  |   const studentId = await setupStudent(request);
-  44  | 
-  45  |   // Not logged in yet: opening the course sends the student to the login page
-  46  |   await page.goto(`/courses/${courseCode}`);
-  47  |   await expect(page).toHaveURL(/\/login\?next=/);
-  48  |   await page.getByLabel("Student ID").fill(String(studentId));
-  49  |   await page.getByLabel("Password").fill(PASSWORD);
-  50  |   await page.getByRole("button", { name: "Log in" }).click();
-  51  | 
-  52  |   // Back on the course page as that student
-  53  |   await expect(page.getByText(`Logged in as Playwright Student (Student ID ${studentId})`)).toBeVisible();
-  54  |   // Wait for the page to show the known starting state before acting
-  55  |   await expect(page.getByRole("heading", { name: `${courseCode}: Software Testing` })).toBeVisible();
-  56  |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
-  57  |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
-  58  | 
-  59  |   // Act the way a student would: click Register, then confirm
-  60  |   await page.getByRole("button", { name: "Register" }).click();
-  61  | 
-  62  |   const dialog = page.getByRole("dialog", { name: "Confirm registration" });
-  63  |   await expect(dialog).toBeVisible();
-  64  |   await dialog.getByRole("button", { name: "Confirm" }).click();
-  65  | 
-  66  |   // Visible outcome: success message, seat count, registration status
-  67  |   await expect(page.getByRole("status")).toHaveText("Registration successful");
-  68  |   await expect(page.getByTestId("seat-count")).toHaveText("1 seat available");
-  69  |   await expect(page.getByText("Registration status: Registered")).toBeVisible();
-  70  |   await expect(page.getByRole("button", { name: "Register" })).toBeDisabled();
-  71  | 
-  72  |   // Persistent effect: reloading shows the server-side seat count, not just the client state
-  73  |   await page.reload();
-  74  |   await expect(page.getByTestId("seat-count")).toHaveText("1 seat available");
-  75  | });
-  76  | 
-  77  | test("student sees a clear message when the course is full", async ({ page, request }) => {
-  78  |   // Realistic full course: 30 total seats, none left
-  79  |   const courseCode = await setupCourse(request, { capacity: 30, availableSeats: 0 });
-  80  |   const studentId = await setupStudent(request);
-  81  | 
-  82  |   await loginViaApi(page, studentId);
-  83  |   await page.goto(`/courses/${courseCode}`);
-  84  |   await expect(page.getByTestId("seat-count")).toHaveText("0 seats available");
-  85  | 
-  86  |   await page.getByRole("button", { name: "Register" }).click();
-  87  |   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
-  88  | 
-  89  |   await expect(page.getByRole("status")).toHaveText("Course is full");
-  90  |   await expect(page.getByTestId("seat-count")).toHaveText("0 seats available");
-  91  |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
-  92  | });
-  93  | 
-  94  | test("student without the prerequisite sees which course is missing", async ({ page, request }) => {
-  95  |   const courseCode = await setupCourse(request, { availableSeats: 2, prerequisites: ["MCS-1514"] });
-  96  |   const studentId = await setupStudent(request); // has not completed MCS-1514
-  97  | 
-  98  |   await loginViaApi(page, studentId);
-  99  |   await page.goto(`/courses/${courseCode}`);
-  100 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
-  101 | 
-  102 |   await page.getByRole("button", { name: "Register" }).click();
-  103 |   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
-  104 | 
-  105 |   // The reason must name the missing course, and no seat may be taken
-> 106 |   await expect(page.getByRole("status")).toHaveText("Missing prerequisite: MCS-1514");
+  34  | // Quick login (shares cookies with the page)
+  35  | async function loginViaApi(page, studentId) {
+  36  |   const res = await page.request.post("/api/login", { data: { studentId, password: PASSWORD } });
+  37  |   expect(res.status()).toBe(200);
+  38  | }
+  39  | 
+  40  | test("student registers for an available course", async ({ page, request }) => {
+  41  |   const courseCode = await setupCourse(request, { availableSeats: 2 });
+  42  |   const studentId = await setupStudent(request);
+  43  | 
+  44  |   // not logged in yet, so it goes to the login page
+  45  |   await page.goto(`/courses/${courseCode}`);
+  46  |   await expect(page).toHaveURL(/\/login\?next=/);
+  47  |   await page.getByLabel("Student ID").fill(String(studentId));
+  48  |   await page.getByLabel("Password").fill(PASSWORD);
+  49  |   await page.getByRole("button", { name: "Log in" }).click();
+  50  | 
+  51  |   // back on the course page
+  52  |   await expect(page.getByText(`Logged in as Playwright Student (Student ID ${studentId})`)).toBeVisible();
+  53  |   // starting state
+  54  |   await expect(page.getByRole("heading", { name: `${courseCode}: Software Testing` })).toBeVisible();
+  55  |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
+  56  |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
+  57  | 
+  58  |   // register and confirm
+  59  |   await page.getByRole("button", { name: "Register" }).click();
+  60  | 
+  61  |   const dialog = page.getByRole("dialog", { name: "Confirm registration" });
+  62  |   await expect(dialog).toBeVisible();
+  63  |   await dialog.getByRole("button", { name: "Confirm" }).click();
+  64  | 
+  65  |   // what the student sees
+  66  |   await expect(page.getByRole("status")).toHaveText("Registration successful");
+  67  |   await expect(page.getByTestId("seat-count")).toHaveText("1 seat available");
+  68  |   await expect(page.getByText("Registration status: Registered")).toBeVisible();
+  69  |   await expect(page.getByRole("button", { name: "Register" })).toBeDisabled();
+  70  | 
+  71  |   // reload to make sure it saved
+  72  |   await page.reload();
+  73  |   await expect(page.getByTestId("seat-count")).toHaveText("1 seat available");
+  74  | });
+  75  | 
+  76  | test("student sees a clear message when the course is full", async ({ page, request }) => {
+  77  |   // 30 seats, none left
+  78  |   const courseCode = await setupCourse(request, { capacity: 30, availableSeats: 0 });
+  79  |   const studentId = await setupStudent(request);
+  80  | 
+  81  |   await loginViaApi(page, studentId);
+  82  |   await page.goto(`/courses/${courseCode}`);
+  83  |   await expect(page.getByTestId("seat-count")).toHaveText("0 seats available");
+  84  | 
+  85  |   await page.getByRole("button", { name: "Register" }).click();
+  86  |   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  87  | 
+  88  |   await expect(page.getByRole("status")).toHaveText("Course is full");
+  89  |   await expect(page.getByTestId("seat-count")).toHaveText("0 seats available");
+  90  |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
+  91  | 
+  92  |   // join the waitlist instead
+  93  |   await page.getByRole("button", { name: "Join waitlist" }).click();
+  94  |   await expect(page.getByRole("status")).toHaveText("Added to waitlist (position 1)");
+  95  |   await expect(page.getByText("Registration status: Waitlisted (position 1)")).toBeVisible();
+  96  |   await page.reload();
+  97  |   await expect(page.getByTestId("seat-count")).toHaveText("0 seats available");
+  98  | });
+  99  | 
+  100 | test("student without the prerequisite sees which course is missing", async ({ page, request }) => {
+  101 |   const courseCode = await setupCourse(request, { availableSeats: 2, prerequisites: ["MCS-1514"] });
+  102 |   const studentId = await setupStudent(request); // has not completed MCS-1514
+  103 | 
+  104 |   await loginViaApi(page, studentId);
+  105 |   await page.goto(`/courses/${courseCode}`);
+  106 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
+  107 | 
+  108 |   await page.getByRole("button", { name: "Register" }).click();
+  109 |   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  110 | 
+  111 |   // should name the missing course and not take a seat
+> 112 |   await expect(page.getByRole("status")).toHaveText("Missing prerequisite: MCS-1514");
       |                                          ^ Error: expect(locator).toHaveText(expected) failed
-  107 |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
-  108 |   await page.reload();
-  109 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
-  110 | });
-  111 | 
-  112 | test("student who is already registered sees a duplicate message", async ({ page, request }) => {
-  113 |   const courseCode = await setupCourse(request, { availableSeats: 3 });
-  114 |   const studentId = await setupStudent(request);
-  115 |   await loginViaApi(page, studentId);
-  116 |   // Arrange the first registration through the API, so the UI step is the duplicate
-  117 |   const first = await page.request.post("/api/registrations", { data: { studentId, courseCode } });
-  118 |   expect(first.status()).toBe(201);
-  119 | 
-  120 |   await page.goto(`/courses/${courseCode}`);
-  121 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
-  122 | 
-  123 |   await page.getByRole("button", { name: "Register" }).click();
-  124 |   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  113 |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
+  114 |   await page.reload();
+  115 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
+  116 | });
+  117 | 
+  118 | test("student who is already registered sees a duplicate message", async ({ page, request }) => {
+  119 |   const courseCode = await setupCourse(request, { availableSeats: 3 });
+  120 |   const studentId = await setupStudent(request);
+  121 |   await loginViaApi(page, studentId);
+  122 |   // first registration through the API
+  123 |   const first = await page.request.post("/api/registrations", { data: { studentId, courseCode } });
+  124 |   expect(first.status()).toBe(201);
   125 | 
-  126 |   // Clear duplicate message, and the second attempt must not take another seat
-  127 |   await expect(page.getByRole("status")).toHaveText("Student is already registered for this course");
-  128 |   await page.reload();
-  129 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
-  130 | });
+  126 |   await page.goto(`/courses/${courseCode}`);
+  127 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
+  128 | 
+  129 |   await page.getByRole("button", { name: "Register" }).click();
+  130 |   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
   131 | 
+  132 |   // second try shouldn't take another seat
+  133 |   await expect(page.getByRole("status")).toHaveText("Student is already registered for this course");
+  134 |   await page.reload();
+  135 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
+  136 | });
+  137 | 
 ```

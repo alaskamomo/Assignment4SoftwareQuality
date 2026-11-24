@@ -1,36 +1,40 @@
-EnrollmentNow automated test run   Tue Nov 24 2026 17:20:12 GMT-0500 (Eastern Standard Time)
+EnrollmentNow automated test run   Tue Nov 24 2026 17:41:14 GMT-0500 (Eastern Standard Time)
 OS: Darwin 25.6.0   Node: v26.13.1
 
 ===== RUN 1: API integration tests, normal build =====
 
  RUN  v5.1.1 /Users/aughton/Downloads/hw4
 
-[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=003_student_login node=v26.13.1
- ✓ tests/registration.integration.test.js > POST /api/registrations (success) > registers an eligible student and decrements the seat count 88ms
- ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > course full returns 409 and changes nothing 51ms
+applied migration 004_waitlist
+[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=004_waitlist node=v26.13.1
+ ✓ tests/registration.integration.test.js > POST /api/registrations (success) > registers an eligible student and decrements the seat count 82ms
+ ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > course full returns 409 and changes nothing 52ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > missing prerequisite returns 422 naming the missing course 50ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > duplicate registration returns 409 and only one registration remains 49ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > unknown course returns 404 without touching seats or audit records 48ms
- ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > malformed request body returns 400 49ms
+ ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > malformed request body returns 400 47ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > registering without logging in returns 401 and changes nothing 25ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > registering a different student returns 403 and changes nothing 69ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > wrong password is rejected and no session is created 45ms
+ ✓ tests/registration.integration.test.js > POST /api/waitlist > student joins the waitlist for a full course without taking a seat 51ms
+ ✓ tests/registration.integration.test.js > POST /api/waitlist > joining the same waitlist twice returns 409 and keeps one entry 50ms
+ ✓ tests/registration.integration.test.js > POST /api/waitlist > course with open seats returns 409 and adds nothing to the waitlist 48ms
 
  Test Files  1 passed (1)
-      Tests  9 passed (9)
-   Start at  17:20:13
-   Duration  665ms (tests 85%, import 12%, transform 3%)
+      Tests  12 passed (12)
+   Start at  17:41:14
+   Duration  819ms (tests 88%, import 10%, transform 3%)
 
 
 ===== RUN 2: Playwright UI tests, normal build =====
-[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=003_student_login browser=chromium 153.0.8010.12
+[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=004_waitlist browser=chromium 153.0.8010.12
 
 Running 4 tests using 1 worker
 
-  ✓  1 [chromium] › tests/registration.spec.js:41:1 › student registers for an available course (509ms)
-  ✓  2 [chromium] › tests/registration.spec.js:77:1 › student sees a clear message when the course is full (218ms)
-  ✓  3 [chromium] › tests/registration.spec.js:94:1 › student without the prerequisite sees which course is missing (215ms)
-  ✓  4 [chromium] › tests/registration.spec.js:112:1 › student who is already registered sees a duplicate message (216ms)
+  ✓  1 [chromium] › tests/registration.spec.js:40:1 › student registers for an available course (524ms)
+  ✓  2 [chromium] › tests/registration.spec.js:76:1 › student sees a clear message when the course is full (269ms)
+  ✓  3 [chromium] › tests/registration.spec.js:100:1 › student without the prerequisite sees which course is missing (212ms)
+  ✓  4 [chromium] › tests/registration.spec.js:118:1 › student who is already registered sees a duplicate message (213ms)
 
   4 passed (1.8s)
 
@@ -38,37 +42,40 @@ Running 4 tests using 1 worker
 
  RUN  v5.1.1 /Users/aughton/Downloads/hw4
 
-[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=003_student_login node=v26.13.1
- × tests/registration.integration.test.js > POST /api/registrations (success) > registers an eligible student and decrements the seat count 82ms
+[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=004_waitlist node=v26.13.1
+ × tests/registration.integration.test.js > POST /api/registrations (success) > registers an eligible student and decrements the seat count 86ms
    → expected { …(7) } to match object { …(6) }
 (1 matching property omitted from actual)
- × tests/registration.integration.test.js > POST /api/registrations (negative cases) > course full returns 409 and changes nothing 51ms
+ × tests/registration.integration.test.js > POST /api/registrations (negative cases) > course full returns 409 and changes nothing 52ms
    → expected 500 to be 409 // Object.is equality
  × tests/registration.integration.test.js > POST /api/registrations (negative cases) > missing prerequisite returns 422 naming the missing course 50ms
    → expected 201 to be 422 // Object.is equality
- × tests/registration.integration.test.js > POST /api/registrations (negative cases) > duplicate registration returns 409 and only one registration remains 50ms
+ × tests/registration.integration.test.js > POST /api/registrations (negative cases) > duplicate registration returns 409 and only one registration remains 51ms
    → expected 500 to be 409 // Object.is equality
- ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > unknown course returns 404 without touching seats or audit records 49ms
+ ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > unknown course returns 404 without touching seats or audit records 50ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > malformed request body returns 400 47ms
- ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > registering without logging in returns 401 and changes nothing 25ms
+ ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > registering without logging in returns 401 and changes nothing 26ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > registering a different student returns 403 and changes nothing 68ms
  ✓ tests/registration.integration.test.js > POST /api/registrations (negative cases) > wrong password is rejected and no session is created 45ms
+ ✓ tests/registration.integration.test.js > POST /api/waitlist > student joins the waitlist for a full course without taking a seat 50ms
+ ✓ tests/registration.integration.test.js > POST /api/waitlist > joining the same waitlist twice returns 409 and keeps one entry 51ms
+ ✓ tests/registration.integration.test.js > POST /api/waitlist > course with open seats returns 409 and adds nothing to the waitlist 49ms
 
  Test Files  1 failed (1)
-      Tests  4 failed | 5 passed (9)
-   Start at  17:20:16
-   Duration  598ms (tests 91%, import 7%, transform 1%)
+      Tests  4 failed | 8 passed (12)
+   Start at  17:41:17
+   Duration  757ms (tests 94%, import 5%, transform 1%)
 
 stderr | tests/registration.integration.test.js > POST /api/registrations (negative cases) > course full returns 409 and changes nothing
 error: new row for relation "courses" violates check constraint "courses_available_seats_check"
     at /Users/aughton/Downloads/hw4/node_modules/pg/lib/client.js:694:17
     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
-    at registerStudent (/Users/aughton/Downloads/hw4/src/registrationService.js:78:21)
-    at /Users/aughton/Downloads/hw4/src/app.js:86:20 {
+    at registerStudent (/Users/aughton/Downloads/hw4/src/registrationService.js:73:21)
+    at /Users/aughton/Downloads/hw4/src/app.js:83:20 {
   length: 263,
   severity: 'ERROR',
   code: '23514',
-  detail: 'Failing row contains (MCS-A1098E7F, Software Testing, 30, -1).',
+  detail: 'Failing row contains (MCS-B41A74C1, Software Testing, 30, -1).',
   hint: undefined,
   position: undefined,
   internalPosition: undefined,
@@ -88,12 +95,12 @@ stderr | tests/registration.integration.test.js > POST /api/registrations (negat
 error: duplicate key value violates unique constraint "registrations_student_id_course_code_key"
     at /Users/aughton/Downloads/hw4/node_modules/pg/lib/client.js:694:17
     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
-    at registerStudent (/Users/aughton/Downloads/hw4/src/registrationService.js:74:17)
-    at /Users/aughton/Downloads/hw4/src/app.js:86:20 {
+    at registerStudent (/Users/aughton/Downloads/hw4/src/registrationService.js:69:17)
+    at /Users/aughton/Downloads/hw4/src/app.js:83:20 {
   length: 285,
   severity: 'ERROR',
   code: '23505',
-  detail: 'Key (student_id, course_code)=(101, MCS-0F385D34) already exists.',
+  detail: 'Key (student_id, course_code)=(132, MCS-D4A7CD31) already exists.',
   hint: undefined,
   position: undefined,
   internalPosition: undefined,
@@ -121,21 +128,21 @@ AssertionError: expected { …(7) } to match object { …(6) }
 
   {
     "availableSeats": 1,
-    "courseCode": "MCS-16696E82",
+    "courseCode": "MCS-D98948A5",
     "message": "Registration successful",
 -   "seatLabel": "1 seat available",
 +   "seatLabel": "1 seats available",
     "status": "registered",
-    "studentId": 98,
+    "studentId": 129,
   }
 
- ❯ tests/registration.integration.test.js:28:27
-     26|     // Assert the response
-     27|     expect(response.status).toBe(201);
-     28|     expect(response.body).toMatchObject({
+ ❯ tests/registration.integration.test.js:27:27
+     25|
+     26|     expect(response.status).toBe(201);
+     27|     expect(response.body).toMatchObject({
        |                           ^
-     29|       message: "Registration successful",
-     30|       studentId,
+     28|       message: "Registration successful",
+     29|       studentId,
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
 
@@ -148,13 +155,13 @@ AssertionError: expected 500 to be 409 // Object.is equality
 - 409
 + 500
 
- ❯ tests/registration.integration.test.js:58:29
-     56|     const response = await agent.post("/api/registrations").send({ stu…
-     57|
-     58|     expect(response.status).toBe(409);
+ ❯ tests/registration.integration.test.js:57:29
+     55|     const response = await agent.post("/api/registrations").send({ stu…
+     56|
+     57|     expect(response.status).toBe(409);
        |                             ^
-     59|     expect(response.body).toMatchObject({ error: "COURSE_FULL", messag…
-     60|     expect(await countRegistrations(studentId, courseCode)).toBe(0);
+     58|     expect(response.body).toMatchObject({ error: "COURSE_FULL", messag…
+     59|     expect(await countRegistrations(studentId, courseCode)).toBe(0);
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
 
@@ -167,13 +174,13 @@ AssertionError: expected 201 to be 422 // Object.is equality
 - 422
 + 201
 
- ❯ tests/registration.integration.test.js:74:29
-     72|     const response = await agent.post("/api/registrations").send({ stu…
-     73|
-     74|     expect(response.status).toBe(422);
+ ❯ tests/registration.integration.test.js:73:29
+     71|     const response = await agent.post("/api/registrations").send({ stu…
+     72|
+     73|     expect(response.status).toBe(422);
        |                             ^
-     75|     expect(response.body.error).toBe("MISSING_PREREQUISITE");
-     76|     expect(response.body.missingPrerequisites).toEqual(["MCS-1514"]);
+     74|     expect(response.body.error).toBe("MISSING_PREREQUISITE");
+     75|     expect(response.body.missingPrerequisites).toEqual(["MCS-1514"]);
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
 
@@ -186,29 +193,29 @@ AssertionError: expected 500 to be 409 // Object.is equality
 - 409
 + 500
 
- ❯ tests/registration.integration.test.js:90:29
-     88|     const response = await agent.post("/api/registrations").send({ stu…
-     89|
-     90|     expect(response.status).toBe(409);
+ ❯ tests/registration.integration.test.js:89:29
+     87|     const response = await agent.post("/api/registrations").send({ stu…
+     88|
+     89|     expect(response.status).toBe(409);
        |                             ^
-     91|     expect(response.body.error).toBe("ALREADY_REGISTERED");
-     92|     expect(await countRegistrations(studentId, courseCode)).toBe(1);
+     90|     expect(response.body.error).toBe("ALREADY_REGISTERED");
+     91|     expect(await countRegistrations(studentId, courseCode)).toBe(1);
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
 
 
 ===== RUN 4: Playwright UI tests with SEED_DEFECT=all (defects 1-4) =====
-[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=003_student_login browser=chromium 153.0.8010.12
+[env] build=enrollmentnow-1.0.0-local database=enrollmentnow_test migration=004_waitlist browser=chromium 153.0.8010.12
 
 Running 4 tests using 1 worker
 
-  ✘  1 [chromium] › tests/registration.spec.js:41:1 › student registers for an available course (5.4s)
-  ✘  2 [chromium] › tests/registration.spec.js:77:1 › student sees a clear message when the course is full (5.2s)
-  ✘  3 [chromium] › tests/registration.spec.js:94:1 › student without the prerequisite sees which course is missing (5.3s)
-  ✘  4 [chromium] › tests/registration.spec.js:112:1 › student who is already registered sees a duplicate message (5.2s)
+  ✘  1 [chromium] › tests/registration.spec.js:40:1 › student registers for an available course (5.4s)
+  ✘  2 [chromium] › tests/registration.spec.js:76:1 › student sees a clear message when the course is full (5.2s)
+  ✘  3 [chromium] › tests/registration.spec.js:100:1 › student without the prerequisite sees which course is missing (5.2s)
+  ✘  4 [chromium] › tests/registration.spec.js:118:1 › student who is already registered sees a duplicate message (5.3s)
 
 
-  1) [chromium] › tests/registration.spec.js:41:1 › student registers for an available course ──────
+  1) [chromium] › tests/registration.spec.js:40:1 › student registers for an available course ──────
 
     Error: expect(locator).toHaveText(expected) failed
 
@@ -224,14 +231,14 @@ Running 4 tests using 1 worker
            - unexpected value "1 seats available"
 
 
-      66 |   // Visible outcome: success message, seat count, registration status
-      67 |   await expect(page.getByRole("status")).toHaveText("Registration successful");
-    > 68 |   await expect(page.getByTestId("seat-count")).toHaveText("1 seat available");
+      65 |   // what the student sees
+      66 |   await expect(page.getByRole("status")).toHaveText("Registration successful");
+    > 67 |   await expect(page.getByTestId("seat-count")).toHaveText("1 seat available");
          |                                                ^
-      69 |   await expect(page.getByText("Registration status: Registered")).toBeVisible();
-      70 |   await expect(page.getByRole("button", { name: "Register" })).toBeDisabled();
-      71 |
-        at /Users/aughton/Downloads/hw4/tests/registration.spec.js:68:48
+      68 |   await expect(page.getByText("Registration status: Registered")).toBeVisible();
+      69 |   await expect(page.getByRole("button", { name: "Register" })).toBeDisabled();
+      70 |
+        at /Users/aughton/Downloads/hw4/tests/registration.spec.js:67:48
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     playwright-artifacts/registration-student-registers-for-an-available-course-chromium/test-failed-1.png
@@ -247,7 +254,7 @@ Running 4 tests using 1 worker
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-  2) [chromium] › tests/registration.spec.js:77:1 › student sees a clear message when the course is full 
+  2) [chromium] › tests/registration.spec.js:76:1 › student sees a clear message when the course is full 
 
     Error: expect(locator).toHaveText(expected) failed
 
@@ -265,14 +272,14 @@ Running 4 tests using 1 worker
            - unexpected value "Unexpected server error"
 
 
-      87 |   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
-      88 |
-    > 89 |   await expect(page.getByRole("status")).toHaveText("Course is full");
+      86 |   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+      87 |
+    > 88 |   await expect(page.getByRole("status")).toHaveText("Course is full");
          |                                          ^
-      90 |   await expect(page.getByTestId("seat-count")).toHaveText("0 seats available");
-      91 |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
-      92 | });
-        at /Users/aughton/Downloads/hw4/tests/registration.spec.js:89:42
+      89 |   await expect(page.getByTestId("seat-count")).toHaveText("0 seats available");
+      90 |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
+      91 |
+        at /Users/aughton/Downloads/hw4/tests/registration.spec.js:88:42
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     playwright-artifacts/registration-student-sees--16866-age-when-the-course-is-full-chromium/test-failed-1.png
@@ -288,7 +295,7 @@ Running 4 tests using 1 worker
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-  3) [chromium] › tests/registration.spec.js:94:1 › student without the prerequisite sees which course is missing 
+  3) [chromium] › tests/registration.spec.js:100:1 › student without the prerequisite sees which course is missing 
 
     Error: expect(locator).toHaveText(expected) failed
 
@@ -306,14 +313,14 @@ Running 4 tests using 1 worker
            - unexpected value "Registration successful"
 
 
-      104 |
-      105 |   // The reason must name the missing course, and no seat may be taken
-    > 106 |   await expect(page.getByRole("status")).toHaveText("Missing prerequisite: MCS-1514");
+      110 |
+      111 |   // should name the missing course and not take a seat
+    > 112 |   await expect(page.getByRole("status")).toHaveText("Missing prerequisite: MCS-1514");
           |                                          ^
-      107 |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
-      108 |   await page.reload();
-      109 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
-        at /Users/aughton/Downloads/hw4/tests/registration.spec.js:106:42
+      113 |   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
+      114 |   await page.reload();
+      115 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
+        at /Users/aughton/Downloads/hw4/tests/registration.spec.js:112:42
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     playwright-artifacts/registration-student-witho-57afa-ees-which-course-is-missing-chromium/test-failed-1.png
@@ -329,7 +336,7 @@ Running 4 tests using 1 worker
 
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-  4) [chromium] › tests/registration.spec.js:112:1 › student who is already registered sees a duplicate message 
+  4) [chromium] › tests/registration.spec.js:118:1 › student who is already registered sees a duplicate message 
 
     Error: expect(locator).toHaveText(expected) failed
 
@@ -347,14 +354,14 @@ Running 4 tests using 1 worker
            - unexpected value "Unexpected server error"
 
 
-      125 |
-      126 |   // Clear duplicate message, and the second attempt must not take another seat
-    > 127 |   await expect(page.getByRole("status")).toHaveText("Student is already registered for this course");
+      131 |
+      132 |   // second try shouldn't take another seat
+    > 133 |   await expect(page.getByRole("status")).toHaveText("Student is already registered for this course");
           |                                          ^
-      128 |   await page.reload();
-      129 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
-      130 | });
-        at /Users/aughton/Downloads/hw4/tests/registration.spec.js:127:42
+      134 |   await page.reload();
+      135 |   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
+      136 | });
+        at /Users/aughton/Downloads/hw4/tests/registration.spec.js:133:42
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     playwright-artifacts/registration-student-who-i-56188-ed-sees-a-duplicate-message-chromium/test-failed-1.png
@@ -371,19 +378,19 @@ Running 4 tests using 1 worker
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
   4 failed
-    [chromium] › tests/registration.spec.js:41:1 › student registers for an available course ───────
-    [chromium] › tests/registration.spec.js:77:1 › student sees a clear message when the course is full 
-    [chromium] › tests/registration.spec.js:94:1 › student without the prerequisite sees which course is missing 
-    [chromium] › tests/registration.spec.js:112:1 › student who is already registered sees a duplicate message 
+    [chromium] › tests/registration.spec.js:40:1 › student registers for an available course ───────
+    [chromium] › tests/registration.spec.js:76:1 › student sees a clear message when the course is full 
+    [chromium] › tests/registration.spec.js:100:1 › student without the prerequisite sees which course is missing 
+    [chromium] › tests/registration.spec.js:118:1 › student who is already registered sees a duplicate message 
 [WebServer] error: new row for relation "courses" violates check constraint "courses_available_seats_check"
 [WebServer]     at /Users/aughton/Downloads/hw4/node_modules/pg/lib/client.js:694:17
 [WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
-[WebServer]     at async registerStudent (file:///Users/aughton/Downloads/hw4/src/registrationService.js:78:21)
-[WebServer]     at async file:///Users/aughton/Downloads/hw4/src/app.js:86:20 {
+[WebServer]     at async registerStudent (file:///Users/aughton/Downloads/hw4/src/registrationService.js:73:21)
+[WebServer]     at async file:///Users/aughton/Downloads/hw4/src/app.js:83:20 {
 [WebServer]   length: 263,
 [WebServer]   severity: 'ERROR',
 [WebServer]   code: '23514',
-[WebServer]   detail: 'Failing row contains (MCS-F37052A6, Software Testing, 30, -1).',
+[WebServer]   detail: 'Failing row contains (MCS-9F41C358, Software Testing, 30, -1).',
 [WebServer]   hint: undefined,
 [WebServer]   position: undefined,
 [WebServer]   internalPosition: undefined,
@@ -401,12 +408,12 @@ Running 4 tests using 1 worker
 [WebServer] error: duplicate key value violates unique constraint "registrations_student_id_course_code_key"
 [WebServer]     at /Users/aughton/Downloads/hw4/node_modules/pg/lib/client.js:694:17
 [WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
-[WebServer]     at async registerStudent (file:///Users/aughton/Downloads/hw4/src/registrationService.js:74:17)
-[WebServer]     at async file:///Users/aughton/Downloads/hw4/src/app.js:86:20 {
+[WebServer]     at async registerStudent (file:///Users/aughton/Downloads/hw4/src/registrationService.js:69:17)
+[WebServer]     at async file:///Users/aughton/Downloads/hw4/src/app.js:83:20 {
 [WebServer]   length: 285,
 [WebServer]   severity: 'ERROR',
 [WebServer]   code: '23505',
-[WebServer]   detail: 'Key (student_id, course_code)=(111, MCS-A70E665A) already exists.',
+[WebServer]   detail: 'Key (student_id, course_code)=(145, MCS-837BDC0C) already exists.',
 [WebServer]   hint: undefined,
 [WebServer]   position: undefined,
 [WebServer]   internalPosition: undefined,

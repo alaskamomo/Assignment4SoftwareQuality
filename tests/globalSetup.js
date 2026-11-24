@@ -1,8 +1,7 @@
 import { migrate } from "../scripts/migrate.js";
 import { pool, BUILD_ID, DATABASE_URL, migrationLevel } from "../src/db.js";
 
-// Runs once before the suite: bring the test schema up to date and print
-// the build and migration level so they appear in test-output.txt
+// Migrate and print build and migration level
 export default async function setup() {
   await migrate();
   const level = await migrationLevel();

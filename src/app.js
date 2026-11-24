@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pool, seeded, BUILD_ID } from "./db.js";
 import { registerStudent, RegistrationError } from "./registrationService.js";
+import { joinWaitlist } from "./waitlistService.js";
 import { login, logout, currentStudent, requireLogin } from "./auth.js";
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
@@ -11,17 +12,14 @@ const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "publi
 export const app = express();
 app.use(express.json());
 
-// Server log: when LOG_FILE is set, every request is appended as one line with
-// time, build, seeded defects, method, path, logged-in student, request body
-// (password masked), status, and error code.
-// The tests set LOG_FILE=test-results/server.log so the log is saved as evidence.
+// Writes one line per request to LOG_FILE (tests use test-results/server.log)
 const LOG_FILE = process.env.LOG_FILE;
 app.use((req, res, next) => {
   if (!LOG_FILE) return next();
   const start = Date.now();
   let resultCode = "";
   const originalJson = res.json.bind(res);
-  // Capture the error/success code from the JSON response for the log line
+  // grab the result code for the log
   res.json = (body) => {
     resultCode = body?.error ?? body?.status ?? body?.message ?? "";
     return originalJson(body);
@@ -32,8 +30,8 @@ app.use((req, res, next) => {
       `build=${BUILD_ID}`,
       `seed=${process.env.SEED_DEFECT || "none"}`,
       `${req.method} ${req.originalUrl}`,
-      req.student ? `student=${req.student.id}` : "", // logged-in student, from the session
-      // Passwords are masked so they never end up in the saved log
+      req.student ? `student=${req.student.id}` : "",
+      // hide passwords
       req.method === "POST"
         ? `body=${JSON.stringify(req.body?.password ? { ...req.body, password: "***" } : req.body)}`
         : "",
@@ -47,9 +45,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Seat label shown to students.
+// "1 seat" vs "2 seats"
 export function seatLabel(n) {
-  // SEEDED DEFECT 1 (seat-label): always uses the plural, so 1 seat shows "1 seats available"
+  // SEEDED DEFECT 1 (seat-label): always plural
   if (seeded("seat-label")) return `${n} seats available`;
   return `${n} ${n === 1 ? "seat" : "seats"} available`;
 }
@@ -65,7 +63,7 @@ app.get("/api/courses/:code", async (req, res) => {
              availableSeats: c.available_seats, seatLabel: seatLabel(c.available_seats) });
 });
 
-// Login: student ID + password. A session cookie identifies the student after that.
+// Login and logout
 app.post("/api/login", login);
 app.post("/api/logout", logout);
 app.get("/api/me", async (req, res) => {
@@ -74,8 +72,7 @@ app.get("/api/me", async (req, res) => {
   res.json({ studentId: student.id, name: student.name });
 });
 
-// The request carries the student ID and course code (Part 2). The student ID
-// must match the logged-in student, so one student cannot register someone else.
+// Student ID has to match whoever is logged in
 app.post("/api/registrations", requireLogin, async (req, res) => {
   const { studentId, courseCode } = req.body ?? {};
   if (Number.isInteger(studentId) && studentId !== req.student.id) {
@@ -91,7 +88,27 @@ app.post("/api/registrations", requireLogin, async (req, res) => {
       return res.status(err.status).json({ error: err.code, message: err.message, ...err.details });
     }
     console.error(err);
-    res.locals.errorDetail = err.message; // database error text goes into server.log
+    res.locals.errorDetail = err.message; // shows up in server.log
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Unexpected server error" });
+  }
+});
+
+// Join the waitlist (same checks as registering)
+app.post("/api/waitlist", requireLogin, async (req, res) => {
+  const { studentId, courseCode } = req.body ?? {};
+  if (Number.isInteger(studentId) && studentId !== req.student.id) {
+    return res.status(403).json({ error: "STUDENT_MISMATCH",
+      message: "You can only add yourself to a waitlist" });
+  }
+  try {
+    const result = await joinWaitlist(studentId, courseCode);
+    res.status(201).json({ message: `Added to waitlist (position ${result.position})`, ...result });
+  } catch (err) {
+    if (err instanceof RegistrationError) {
+      return res.status(err.status).json({ error: err.code, message: err.message, ...err.details });
+    }
+    console.error(err);
+    res.locals.errorDetail = err.message;
     res.status(500).json({ error: "INTERNAL_ERROR", message: "Unexpected server error" });
   }
 });
@@ -100,7 +117,7 @@ app.post("/api/registrations", requireLogin, async (req, res) => {
 app.get("/login", (_req, res) => res.sendFile(path.join(publicDir, "login.html")));
 app.get("/courses/:code", (_req, res) => res.sendFile(path.join(publicDir, "course.html")));
 
-// Test-only fixture routes. They are never mounted outside NODE_ENV=test.
+// Test setup routes, only when NODE_ENV=test
 if (process.env.NODE_ENV === "test") {
   const { testRouter } = await import("./testRoutes.js");
   app.use("/test", testRouter);

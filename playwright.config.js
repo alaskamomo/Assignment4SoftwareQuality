@@ -6,11 +6,11 @@ export default defineConfig({
   testDir: "tests",
   testMatch: "**/*.spec.js",
   globalSetup: "./tests/playwright.globalSetup.js",
-  // Raw Playwright artifacts go here; the evidence we submit is copied into test-results/
+  // run-all.js copies failures into test-results/
   outputDir: "playwright-artifacts",
   reporter: [["list"]],
   timeout: 15000,
-  expect: { timeout: 5000 }, // retrying assertions wait up to 5 s, no fixed sleeps
+  expect: { timeout: 5000 }, // assertions retry for 5s
   use: {
     baseURL: `http://localhost:${PORT}`,
     screenshot: "only-on-failure",

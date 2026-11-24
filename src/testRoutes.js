@@ -2,7 +2,7 @@ import express from "express";
 import { pool } from "./db.js";
 import { hashPassword } from "./auth.js";
 
-// Fixture endpoints used by Playwright to arrange and clean up data through the API
+// Setup and cleanup routes for the Playwright tests
 export const testRouter = express.Router();
 
 testRouter.post("/setup/course", async (req, res) => {
@@ -27,7 +27,7 @@ testRouter.post("/setup/student", async (req, res) => {
   res.status(201).json({ id: rows[0].id });
 });
 
-// Deletes only what the test created. Registrations cascade from students and courses.
+// Only deletes what the test made
 testRouter.post("/teardown", async (req, res) => {
   const { studentIds = [], courseCodes = [] } = req.body;
   await pool.query("DELETE FROM audit_log WHERE student_id = ANY($1) OR course_code = ANY($2)",

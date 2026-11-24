@@ -1,4 +1,4 @@
--- 002_audit_log.sql: every successful registration writes an audit row
+-- Audit log for registrations
 CREATE TABLE audit_log (
   id          SERIAL PRIMARY KEY,
   student_id  INTEGER NOT NULL,

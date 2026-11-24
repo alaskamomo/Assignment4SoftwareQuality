@@ -5,7 +5,7 @@ import { pool } from "../src/db.js";
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), "../db/migrations");
 
-// Applies any .sql file in db/migrations that is not yet recorded in schema_migrations
+// Runs any migration that hasn't run yet
 export async function migrate() {
   await pool.query("CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY)");
   const { rows } = await pool.query("SELECT name FROM schema_migrations");
@@ -30,7 +30,7 @@ export async function migrate() {
   }
 }
 
-// Allow "node scripts/migrate.js" from the command line
+// npm run migrate
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   migrate().then(() => pool.end()).catch((err) => { console.error(err); process.exit(1); });
 }
