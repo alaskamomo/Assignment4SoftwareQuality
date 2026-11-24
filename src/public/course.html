@@ -11,11 +11,12 @@
 </head>
 <body>
   <main>
+    <p id="who"></p>
+    <button id="logout" type="button">Log out</button>
+
     <h1 id="title">Loading course...</h1>
     <p data-testid="seat-count" id="seats"></p>
 
-    <label for="student-id">Student ID</label>
-    <input id="student-id" type="number" />
     <button id="register" type="button">Register</button>
 
     <p id="reg-status">Registration status: Not registered</p>
@@ -33,6 +34,23 @@
   <script>
     const code = decodeURIComponent(location.pathname.split("/").pop());
     const $ = (id) => document.getElementById(id);
+
+    // The page needs a logged-in student; otherwise send them to the login page
+    async function loadStudent() {
+      const res = await fetch("/api/me");
+      if (!res.ok) {
+        location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
+        return false;
+      }
+      const me = await res.json();
+      $("who").textContent = `Logged in as ${me.name} (Student ID ${me.studentId})`;
+      return true;
+    }
+
+    $("logout").addEventListener("click", async () => {
+      await fetch("/api/logout", { method: "POST" });
+      location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
+    });
 
     async function loadCourse() {
       const res = await fetch(`/api/courses/${encodeURIComponent(code)}`);
@@ -53,7 +71,7 @@
       const res = await fetch("/api/registrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: Number($("student-id").value), courseCode: code }),
+        body: JSON.stringify({ courseCode: code }),
       });
       const body = await res.json();
       $("message").textContent = body.message;
@@ -65,7 +83,7 @@
       }
     });
 
-    loadCourse();
+    loadStudent().then((ok) => { if (ok) loadCourse(); });
   </script>
 </body>
 </html>

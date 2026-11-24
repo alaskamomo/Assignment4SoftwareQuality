@@ -14,7 +14,7 @@ export class RegistrationError extends Error {
 // and the course row is locked so two requests cannot take the same last seat.
 export async function registerStudent(studentId, courseCode) {
   if (!Number.isInteger(studentId) || typeof courseCode !== "string" || courseCode.trim() === "") {
-    throw new RegistrationError(400, "INVALID_REQUEST", "studentId (integer) and courseCode are required");
+    throw new RegistrationError(400, "INVALID_REQUEST", "courseCode is required");
   }
 
   const client = await pool.connect();

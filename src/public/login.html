@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EnrollmentNow | Log in</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; }
+    label { display: block; margin-top: 0.75rem; }
+    button { margin-top: 1rem; }
+    .err { color: #a11a1a; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Log in to EnrollmentNow</h1>
+    <form id="login-form">
+      <label for="student-id">Student ID</label>
+      <input id="student-id" type="number" required />
+
+      <label for="password">Password</label>
+      <input id="password" type="password" required />
+
+      <button type="submit">Log in</button>
+    </form>
+    <!-- role=alert so a failed login is announced and easy to find by role -->
+    <p role="alert" id="error" class="err"></p>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    // After logging in, go back to the page the student came from
+    const next = new URLSearchParams(location.search).get("next") || "/";
+
+    $("login-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: Number($("student-id").value), password: $("password").value }),
+      });
+      if (res.ok) { location.href = next.startsWith("/") ? next : "/"; return; }
+      const body = await res.json();
+      $("error").textContent = body.message;
+    });
+  </script>
+</body>
+</html>

@@ -3,7 +3,7 @@ import { afterAll, afterEach, describe, expect, test } from "vitest";
 import { app } from "../src/app.js";
 import {
   db, createStudent, createCourse, createRegistration, cleanupTestData,
-  countRegistrations, seatsFor, auditCount, uniqueCode,
+  countRegistrations, seatsFor, auditCount, uniqueCode, loginAs,
 } from "./testData.js";
 
 // Each test arranges its own data, so cleanup after each one is enough for isolation
@@ -16,10 +16,11 @@ describe("POST /api/registrations (success)", () => {
     const studentId = await createStudent({ completed: ["MCS-1514"] });
     const courseCode = await createCourse({ availableSeats: 2, prerequisites: ["MCS-1514"] });
 
-    // Act: real HTTP request through Express, service, and the test database
-    const response = await request(app)
+    // Act: log in, then send a real HTTP request through Express, service, and the test database
+    const agent = await loginAs(studentId);
+    const response = await agent
       .post("/api/registrations")
-      .send({ studentId, courseCode });
+      .send({ courseCode });
 
     // Assert the response
     expect(response.status).toBe(201);
@@ -50,7 +51,8 @@ describe("POST /api/registrations (negative cases)", () => {
     const courseCode = await createCourse({ capacity: 30, availableSeats: 0 });
     const auditBefore = await auditCount();
 
-    const response = await request(app).post("/api/registrations").send({ studentId, courseCode });
+    const agent = await loginAs(studentId);
+    const response = await agent.post("/api/registrations").send({ courseCode });
 
     expect(response.status).toBe(409);
     expect(response.body).toMatchObject({ error: "COURSE_FULL", message: "Course is full" });
@@ -63,7 +65,8 @@ describe("POST /api/registrations (negative cases)", () => {
     const studentId = await createStudent({ completed: [] });
     const courseCode = await createCourse({ availableSeats: 2, prerequisites: ["MCS-1514"] });
 
-    const response = await request(app).post("/api/registrations").send({ studentId, courseCode });
+    const agent = await loginAs(studentId);
+    const response = await agent.post("/api/registrations").send({ courseCode });
 
     expect(response.status).toBe(422);
     expect(response.body.error).toBe("MISSING_PREREQUISITE");
@@ -78,7 +81,8 @@ describe("POST /api/registrations (negative cases)", () => {
     const courseCode = await createCourse({ capacity: 3, availableSeats: 3 });
     await createRegistration(studentId, courseCode); // seats now 2
 
-    const response = await request(app).post("/api/registrations").send({ studentId, courseCode });
+    const agent = await loginAs(studentId);
+    const response = await agent.post("/api/registrations").send({ courseCode });
 
     expect(response.status).toBe(409);
     expect(response.body.error).toBe("ALREADY_REGISTERED");
@@ -92,9 +96,10 @@ describe("POST /api/registrations (negative cases)", () => {
     const auditBefore = await auditCount();
     const missingCode = uniqueCode("NOPE");
 
-    const response = await request(app)
+    const agent = await loginAs(studentId);
+    const response = await agent
       .post("/api/registrations")
-      .send({ studentId, courseCode: missingCode });
+      .send({ courseCode: missingCode });
 
     expect(response.status).toBe(404);
     expect(response.body.error).toBe("COURSE_NOT_FOUND");
@@ -107,8 +112,37 @@ describe("POST /api/registrations (negative cases)", () => {
   });
 
   test("malformed request body returns 400", async () => {
-    const response = await request(app).post("/api/registrations").send({ courseCode: "MCS-2514" });
+    const studentId = await createStudent();
+    const agent = await loginAs(studentId);
+    const response = await agent.post("/api/registrations").send({}); // no courseCode
     expect(response.status).toBe(400);
     expect(response.body.error).toBe("INVALID_REQUEST");
+  });
+
+  test("registering without logging in returns 401 and changes nothing", async () => {
+    const studentId = await createStudent();
+    const courseCode = await createCourse({ availableSeats: 2 });
+    const auditBefore = await auditCount();
+
+    // No login: even a valid studentId in the body must not be trusted
+    const response = await request(app).post("/api/registrations").send({ studentId, courseCode });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("NOT_LOGGED_IN");
+    expect(await countRegistrations(studentId, courseCode)).toBe(0);
+    expect(await seatsFor(courseCode)).toBe(2);
+    expect(await auditCount()).toBe(auditBefore);
+  });
+
+  test("wrong password is rejected and no session is created", async () => {
+    const studentId = await createStudent();
+    const response = await request(app).post("/api/login").send({ studentId, password: "wrong" });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("INVALID_CREDENTIALS");
+    expect(response.headers["set-cookie"]).toBeUndefined();
+    const sessions = await db.query("SELECT count(*)::int AS n FROM sessions WHERE student_id = $1",
+                                    [studentId]);
+    expect(sessions.rows[0].n).toBe(0);
   });
 });

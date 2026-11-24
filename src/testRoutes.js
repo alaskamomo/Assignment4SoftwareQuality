@@ -1,5 +1,6 @@
 import express from "express";
 import { pool } from "./db.js";
+import { hashPassword } from "./auth.js";
 
 // Fixture endpoints used by Playwright to arrange and clean up data through the API
 export const testRouter = express.Router();
@@ -18,8 +19,10 @@ testRouter.post("/setup/course", async (req, res) => {
 });
 
 testRouter.post("/setup/student", async (req, res) => {
+  const { name = "Test Student", password = "test-password" } = req.body;
   const { rows } = await pool.query(
-    "INSERT INTO students (name) VALUES ($1) RETURNING id", [req.body.name ?? "Test Student"]
+    "INSERT INTO students (name, password_hash) VALUES ($1, $2) RETURNING id",
+    [name, hashPassword(password)]
   );
   res.status(201).json({ id: rows[0].id });
 });

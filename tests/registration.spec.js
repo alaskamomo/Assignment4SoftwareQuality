@@ -21,26 +21,42 @@ async function setupCourse(request, { availableSeats, capacity = availableSeats,
   return code;
 }
 
+const PASSWORD = "test-password";
+
 async function setupStudent(request) {
-  const res = await request.post("/test/setup/student", { data: { name: "Playwright Student" } });
+  const res = await request.post("/test/setup/student", { data: { name: "Playwright Student", password: PASSWORD } });
   expect(res.status()).toBe(201);
   const { id } = await res.json();
   created.studentIds.push(id);
   return id;
 }
 
+// Fast login for tests whose focus is not the login screen. page.request shares
+// cookies with the browser page, so the page is logged in afterwards.
+async function loginViaApi(page, studentId) {
+  const res = await page.request.post("/api/login", { data: { studentId, password: PASSWORD } });
+  expect(res.status()).toBe(200);
+}
+
 test("student registers for an available course", async ({ page, request }) => {
   const courseCode = await setupCourse(request, { availableSeats: 2 });
   const studentId = await setupStudent(request);
 
+  // Not logged in yet: opening the course sends the student to the login page
   await page.goto(`/courses/${courseCode}`);
+  await expect(page).toHaveURL(/\/login\?next=/);
+  await page.getByLabel("Student ID").fill(String(studentId));
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Log in" }).click();
+
+  // Back on the course page as that student
+  await expect(page.getByText(`Logged in as Playwright Student (Student ID ${studentId})`)).toBeVisible();
   // Wait for the page to show the known starting state before acting
   await expect(page.getByRole("heading", { name: `${courseCode}: Software Testing` })).toBeVisible();
   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
   await expect(page.getByText("Registration status: Not registered")).toBeVisible();
 
-  // Act the way a student would: fill the labeled field, click, confirm
-  await page.getByLabel("Student ID").fill(String(studentId));
+  // Act the way a student would: click Register, then confirm
   await page.getByRole("button", { name: "Register" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Confirm registration" });
@@ -63,10 +79,10 @@ test("student sees a clear message when the course is full", async ({ page, requ
   const courseCode = await setupCourse(request, { capacity: 30, availableSeats: 0 });
   const studentId = await setupStudent(request);
 
+  await loginViaApi(page, studentId);
   await page.goto(`/courses/${courseCode}`);
   await expect(page.getByTestId("seat-count")).toHaveText("0 seats available");
 
-  await page.getByLabel("Student ID").fill(String(studentId));
   await page.getByRole("button", { name: "Register" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
 
@@ -79,10 +95,10 @@ test("student without the prerequisite sees which course is missing", async ({ p
   const courseCode = await setupCourse(request, { availableSeats: 2, prerequisites: ["MCS-1514"] });
   const studentId = await setupStudent(request); // has not completed MCS-1514
 
+  await loginViaApi(page, studentId);
   await page.goto(`/courses/${courseCode}`);
   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
 
-  await page.getByLabel("Student ID").fill(String(studentId));
   await page.getByRole("button", { name: "Register" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
 
@@ -96,14 +112,14 @@ test("student without the prerequisite sees which course is missing", async ({ p
 test("student who is already registered sees a duplicate message", async ({ page, request }) => {
   const courseCode = await setupCourse(request, { availableSeats: 3 });
   const studentId = await setupStudent(request);
+  await loginViaApi(page, studentId);
   // Arrange the first registration through the API, so the UI step is the duplicate
-  const first = await request.post("/api/registrations", { data: { studentId, courseCode } });
+  const first = await page.request.post("/api/registrations", { data: { courseCode } });
   expect(first.status()).toBe(201);
 
   await page.goto(`/courses/${courseCode}`);
   await expect(page.getByTestId("seat-count")).toHaveText("2 seats available");
 
-  await page.getByLabel("Student ID").fill(String(studentId));
   await page.getByRole("button", { name: "Register" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
 

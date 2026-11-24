@@ -1,11 +1,11 @@
 # Defect Reports
 
 Monet Aughton  
-11/23/2026  
+11/24/2026  
 MCS 4513  
 Automated Integration and UI Tests  
 
-For Part 5 I planted four bugs in the app on purpose so the tests would have something real to catch. Each bug has its own switch through the `SEED_DEFECT` environment variable, and `SEED_DEFECT=all` turns on all four at once. In the code, each one is marked with a `SEEDED DEFECT` comment. When the switch is off, all 6 API tests and all 4 UI tests pass (RUN 1 and RUN 2 in `test-results/test-output.txt`). Before writing these up, I also turned the switches on one at a time to make sure each bug only broke the tests I expected it to.
+For Part 5 I planted four bugs in the app on purpose so the tests would have something real to catch. Each bug has its own switch through the `SEED_DEFECT` environment variable, and `SEED_DEFECT=all` turns on all four at once. In the code, each one is marked with a `SEEDED DEFECT` comment. When the switch is off, all 8 API tests and all 4 UI tests pass (RUN 1 and RUN 2 in `test-results/test-output.txt`). Before writing these up, I also turned the switches on one at a time to make sure each bug only broke the tests I expected it to.
 
 | # | Defect | Switch | API test that catches it | UI test that catches it | Severity |
 |---|---|---|---|---|---|
@@ -14,7 +14,9 @@ For Part 5 I planted four bugs in the app on purpose so the tests would have som
 | 3 | Duplicate registration gives a server error | `skip-duplicate` | duplicate registration returns 409 | student who is already registered sees a duplicate message | Medium |
 | 4 | Full course gives a server error | `wrong-seat-column` | course full returns 409 | student sees a clear message when the course is full | Medium |
 
-All four were found in the same run on my laptop: a MacBook Air (Apple Silicon) on macOS 26.6 (Darwin 25.6.0), Node v26.13.1, PostgreSQL 16.16 from Homebrew with the `enrollmentnow_test` database at migration `002_audit_log`, and Chromium 153.0.8010.12 running headless through Playwright 1.63.0. The build was `enrollmentnow-1.0.0-local` with `SEED_DEFECT=all`. I ran it on 2026-11-23 at 21:17 EST. The API tests (RUN 3) ran at 21:17:29 and the UI tests (RUN 4) ran from 21:17:30 to 21:17:51. Each UI failure saved a screenshot, a trace, and a page snapshot into `test-results/defect-N/`, and a trace can be opened with `npx playwright show-trace test-results/defect-N/trace.zip`.
+All four were found in the same run on my laptop: a MacBook Air (Apple Silicon) on macOS 26.6 (Darwin 25.6.0), Node v26.13.1, PostgreSQL 16.16 from Homebrew with the `enrollmentnow_test` database at migration `003_student_login`, and Chromium 153.0.8010.12 running headless through Playwright 1.63.0. The build was `enrollmentnow-1.0.0-local` with `SEED_DEFECT=all`. I ran it on 2026-11-24 at 17:11 EST. The API tests (RUN 3) ran at 17:11:08 and the UI tests (RUN 4) ran from 17:11:09 to 17:11:31. Each UI failure saved a screenshot, a trace, and a page snapshot into `test-results/defect-N/`, and a trace can be opened with `npx playwright show-trace test-results/defect-N/trace.zip`.
+
+Every test runs as a logged-in student. Students log in on `/login` with their student ID and password, and the server identifies the student from the session cookie, not from anything typed on the course page. Test students are created with the password `test-password`.
 
 ---
 
@@ -24,8 +26,8 @@ All four were found in the same run on my laptop: a MacBook Air (Apple Silicon) 
 |---|---|
 | Title | Course page says "1 seats available" instead of "1 seat available" |
 | Environment | Same as above, with the `seat-label` switch |
-| Preconditions | A new student (made with `POST /test/setup/student`) who has not completed any courses. A "Software Testing" course with capacity 2, 2 open seats, and no prerequisites. The student is not registered yet. There is no login, so the student just types their ID on the course page. |
-| Steps | 1. Open `/courses/<course code>`. 2. Type the student ID into "Student ID". 3. Click "Register". 4. Click "Confirm" in the "Confirm registration" dialog. |
+| Preconditions | A new student (made with `POST /test/setup/student`) who has not completed any courses. A "Software Testing" course with capacity 2, 2 open seats, and no prerequisites. The student is not registered yet. The student is logged out at the start and logs in during the steps. |
+| Steps | 1. Open `/courses/<course code>`. The app redirects to `/login`. 2. Enter the student ID and password and click "Log in". The course page shows "Logged in as Playwright Student (Student ID <id>)". 3. Click "Register". 4. Click "Confirm" in the "Confirm registration" dialog. |
 | Expected result | "Registration successful" shows up and the seat count changes to "1 seat available" (Part 4, steps 5 and 6). |
 | Actual result | The registration goes through fine. The success message shows up and the status changes to "Registered", but the seat count says "1 seats available". The data underneath is right (1 registration, `available_seats = 1`). The API response has the same wrong text in `seatLabel`, so the problem is on the server side and not in the page. |
 | Evidence | Caught by the UI test "student registers for an available course" (RUN 4) and the API test "registers an eligible student and decrements the seat count" (RUN 3). Screenshot, trace, and snapshot are in `test-results/defect-1/`. In `test-results/server.log` the registration request returned a normal 201. |
@@ -37,7 +39,7 @@ UI:  Expected: "1 seat available"
      14 × locator resolved to <p id="seats" data-testid="seat-count">1 seats available</p>
 API: -   "seatLabel": "1 seat available",
      +   "seatLabel": "1 seats available",
-log: 2026-11-24T02:17:30.506Z seed=all POST /api/registrations body={"studentId":56,"courseCode":"MCS-7DE2D451"} -> 201 result=registered
+log: 2026-11-24T22:11:09.840Z seed=all POST /api/registrations student=80 body={"courseCode":"MCS-EF923BDF"} -> 201 result=registered
 ```
 
 How I classified it: product defect. My first thought was a timing issue, but Playwright checked the text 14 times over 5 seconds and got the same thing every time, and the success message was already on screen by then. The other tests in the same run passed, so the environment was fine. I also checked that my expected text was not wrong. "1 seat available" is exactly what the assignment's starter example uses, and the test passes when the switch is off. Since the number itself is right and only the wording is off, I traced it to `seatLabel()` in `src/app.js`, which always adds an "s". The fix is to use "seat" when there is exactly one.
@@ -50,8 +52,8 @@ How I classified it: product defect. My first thought was a timing issue, but Pl
 |---|---|
 | Title | Student who is missing a prerequisite still gets registered (201 instead of 422) |
 | Environment | Same as above, with the `skip-prereq` switch |
-| Preconditions | A student who has not completed any courses. A course with 2 open seats that requires `MCS-1514`. The student is not registered yet. |
-| Steps | Through the API: send `POST /api/registrations` with the student ID and course code. Through the UI: open the course page, enter the student ID, click "Register", then "Confirm". |
+| Preconditions | A student who has not completed any courses, logged in with their student ID and password. A course with 2 open seats that requires `MCS-1514`. The student is not registered yet. |
+| Steps | Through the API: log in with `POST /api/login`, then send `POST /api/registrations` with the course code. Through the UI: while logged in, open the course page, click "Register", then "Confirm". |
 | Expected result | The request is rejected with 422 and the message "Missing prerequisite: MCS-1514". No registration is created and the course still has 2 seats (Part 3). |
 | Actual result | The student gets 201 and "Registration successful". A registration row is created, the seats drop from 2 to 1, and an audit row is written. A student who is not eligible ends up holding a real seat. |
 | Evidence | Caught by the API test "missing prerequisite returns 422 naming the missing course" (RUN 3) and the UI test "student without the prerequisite sees which course is missing" (RUN 4). Screenshot, trace, and snapshot are in `test-results/defect-2/`. The matching lines are in `test-results/server.log`. |
@@ -61,9 +63,9 @@ How I classified it: product defect. My first thought was a timing issue, but Pl
 API: AssertionError: expected 201 to be 422
 UI:  Expected: "Missing prerequisite: MCS-1514"
      Received: "Registration successful"
-log: RUN 1 seed=none POST /api/registrations body={"studentId":44,"courseCode":"MCS-CB27DFA2"} -> 422 result=MISSING_PREREQUISITE
-     RUN 3 seed=all  POST /api/registrations body={"studentId":53,"courseCode":"MCS-964B1F44"} -> 201 result=registered
-     RUN 4 seed=all  POST /api/registrations body={"studentId":58,"courseCode":"MCS-756F1F77"} -> 201 result=registered
+log: RUN 1 seed=none POST /api/registrations student=62 body={"courseCode":"MCS-B59AE0FA"} -> 422 result=MISSING_PREREQUISITE
+     RUN 3 seed=all  POST /api/registrations student=74 body={"courseCode":"MCS-E5423711"} -> 201 result=registered
+     RUN 4 seed=all  POST /api/registrations student=82 body={"courseCode":"MCS-DE2C59EB"} -> 201 result=registered
 DB when I reproduced it by hand afterward (same build and switch): available_seats=1 registrations=1 audit_rows=1
 ```
 
@@ -79,8 +81,8 @@ This defect is a big part of why my tests check the database and not just the re
 |---|---|
 | Title | Registering twice for the same course shows "Unexpected server error" instead of a duplicate message |
 | Environment | Same as above, with the `skip-duplicate` switch |
-| Preconditions | A course with 3 open seats. The student is already registered for it once (set up through `POST /api/registrations`), so 2 seats are left. |
-| Steps | Through the API: send `POST /api/registrations` again with the same student and course. Through the UI: open the course page, enter the same student ID, click "Register", then "Confirm". |
+| Preconditions | The student is logged in with their student ID and password. A course with 3 open seats. The student is already registered for it once (set up through `POST /api/registrations` in the same session), so 2 seats are left. |
+| Steps | Through the API: send `POST /api/registrations` again for the same course while logged in as the same student. Through the UI: while logged in, open the course page, click "Register", then "Confirm". |
 | Expected result | 409 with "Student is already registered for this course". There is still only 1 registration and 2 seats left (Part 3). |
 | Actual result | The student gets a 500 and the page just says "Unexpected server error". The data is still fine (1 registration, 2 seats, 1 audit row), but only because the database has a UNIQUE rule on (student_id, course_code) that blocked the second insert. The student is not told what went wrong. |
 | Evidence | Caught by the API test "duplicate registration returns 409 and only one registration remains" (RUN 3) and the UI test "student who is already registered sees a duplicate message" (RUN 4). Screenshot, trace, and snapshot are in `test-results/defect-3/`. The database error is in `test-results/server.log` and in the server output in `test-output.txt`. |
@@ -90,10 +92,10 @@ This defect is a big part of why my tests check the database and not just the re
 API: AssertionError: expected 500 to be 409
 UI:  Expected: "Student is already registered for this course"
      Received: "Unexpected server error"
-log: 2026-11-24T02:17:46.776Z seed=all POST /api/registrations body={"studentId":59,"courseCode":"MCS-00F1F3C9"} -> 201 result=registered
-     2026-11-24T02:17:46.869Z seed=all POST /api/registrations body={"studentId":59,"courseCode":"MCS-00F1F3C9"} -> 500 result=INTERNAL_ERROR
+log: 2026-11-24T22:11:26.227Z seed=all POST /api/registrations student=83 body={"courseCode":"MCS-31ACCB59"} -> 201 result=registered
+     2026-11-24T22:11:26.322Z seed=all POST /api/registrations student=83 body={"courseCode":"MCS-31ACCB59"} -> 500 result=INTERNAL_ERROR
        detail="duplicate key value violates unique constraint registrations_student_id_course_code_key"
-server stderr: Key (student_id, course_code)=(59, MCS-00F1F3C9) already exists.
+server stderr: Key (student_id, course_code)=(83, MCS-31ACCB59) already exists.
 DB when I reproduced it by hand afterward (same build and switch): available_seats=2 registrations=1 audit_rows=1
 ```
 
@@ -109,8 +111,8 @@ One more thing I noticed in the screenshot: the page says "Registration status: 
 |---|---|
 | Title | Registering for a full course shows "Unexpected server error" instead of "Course is full" |
 | Environment | Same as above, with the `wrong-seat-column` switch |
-| Preconditions | An eligible student. A course with capacity 30 and 0 seats left. The student is not registered yet. |
-| Steps | Through the API: send `POST /api/registrations` with the student ID and course code. Through the UI: open the course page, enter the student ID, click "Register", then "Confirm". |
+| Preconditions | An eligible student, logged in with their student ID and password. A course with capacity 30 and 0 seats left. The student is not registered yet. |
+| Steps | Through the API: log in with `POST /api/login`, then send `POST /api/registrations` with the course code. Through the UI: while logged in, open the course page, click "Register", then "Confirm". |
 | Expected result | 409 "Course is full". No registration is created and the seats stay at 0 (Part 3). |
 | Actual result | The student gets a 500 and "Unexpected server error". The check for a full course looks at total capacity (30) when it should look at seats left (0), so the request gets through. The code then tries to drop the seat count to -1, and the database rejects that. Nothing is saved (0 seats, 0 registrations, 0 audit rows). |
 | Evidence | Caught by the API test "course full returns 409 and changes nothing" (RUN 3) and the UI test "student sees a clear message when the course is full" (RUN 4). Screenshot, trace, and snapshot are in `test-results/defect-4/`. The database error is in `test-results/server.log` and in the server output in `test-output.txt`. |
@@ -120,9 +122,9 @@ One more thing I noticed in the screenshot: the page says "Registration status: 
 API: AssertionError: expected 500 to be 409
 UI:  Expected: "Course is full"
      Received: "Unexpected server error"
-log: 2026-11-24T02:17:35.973Z seed=all POST /api/registrations body={"studentId":57,"courseCode":"MCS-B16E1967"} -> 500 result=INTERNAL_ERROR
+log: 2026-11-24T22:11:15.351Z seed=all POST /api/registrations student=81 body={"courseCode":"MCS-F2214629"} -> 500 result=INTERNAL_ERROR
        detail="new row for relation courses violates check constraint courses_available_seats_check"
-server stderr: Failing row contains (MCS-B16E1967, Software Testing, 30, -1).
+server stderr: Failing row contains (MCS-F2214629, Software Testing, 30, -1).
 DB when I reproduced it by hand afterward (same build and switch): available_seats=0 registrations=0 audit_rows=0
 ```
 

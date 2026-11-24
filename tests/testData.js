@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
+import request from "supertest";
+import { app } from "../src/app.js";
 import { pool, DATABASE_URL } from "../src/db.js";
+import { hashPassword } from "../src/auth.js";
+
+export const TEST_PASSWORD = "test-password";
 
 // Safety guard: refuse to run unless the database name ends in _test
 const dbName = new URL(DATABASE_URL).pathname.slice(1);
@@ -18,7 +23,9 @@ export function uniqueCode(prefix = "MCS") {
 }
 
 export async function createStudent({ name = "Test Student", completed = [] } = {}) {
-  const { rows } = await db.query("INSERT INTO students (name) VALUES ($1) RETURNING id", [name]);
+  const { rows } = await db.query(
+    "INSERT INTO students (name, password_hash) VALUES ($1, $2) RETURNING id",
+    [name, hashPassword(TEST_PASSWORD)]);
   const id = rows[0].id;
   created.studentIds.push(id);
   for (const code of completed) {
@@ -41,6 +48,15 @@ export async function createCourse({ code = uniqueCode(), title = "Software Test
   return code;
 }
 
+// Logs the student in through the real login endpoint and returns a supertest
+// agent that keeps the session cookie for the requests that follow
+export async function loginAs(studentId) {
+  const agent = request.agent(app);
+  const res = await agent.post("/api/login").send({ studentId, password: TEST_PASSWORD });
+  if (res.status !== 200) throw new Error(`Login failed for student ${studentId}: ${res.status}`);
+  return agent;
+}
+
 // Arrange a registration directly in the database (used for the duplicate case)
 export async function createRegistration(studentId, courseCode) {
   await db.query("INSERT INTO registrations (student_id, course_code) VALUES ($1, $2)",
@@ -49,8 +65,8 @@ export async function createRegistration(studentId, courseCode) {
                  [courseCode]);
 }
 
-// Removes only the rows this test created. Registrations, prerequisites and
-// completed courses cascade from students and courses.
+// Removes only the rows this test created. Registrations, prerequisites,
+// sessions and completed courses cascade from students and courses.
 export async function cleanupTestData() {
   const { studentIds, courseCodes } = created;
   await db.query("DELETE FROM audit_log WHERE student_id = ANY($1) OR course_code = ANY($2)",

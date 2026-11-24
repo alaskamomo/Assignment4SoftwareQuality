@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pool, seeded, BUILD_ID } from "./db.js";
 import { registerStudent, RegistrationError } from "./registrationService.js";
+import { login, logout, currentStudent, requireLogin } from "./auth.js";
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 
@@ -11,7 +12,8 @@ export const app = express();
 app.use(express.json());
 
 // Server log: when LOG_FILE is set, every request is appended as one line with
-// time, build, seeded defects, method, path, request body, status, and error code.
+// time, build, seeded defects, method, path, logged-in student, request body
+// (password masked), status, and error code.
 // The tests set LOG_FILE=test-results/server.log so the log is saved as evidence.
 const LOG_FILE = process.env.LOG_FILE;
 app.use((req, res, next) => {
@@ -30,7 +32,11 @@ app.use((req, res, next) => {
       `build=${BUILD_ID}`,
       `seed=${process.env.SEED_DEFECT || "none"}`,
       `${req.method} ${req.originalUrl}`,
-      req.method === "POST" ? `body=${JSON.stringify(req.body)}` : "",
+      req.student ? `student=${req.student.id}` : "", // logged-in student, from the session
+      // Passwords are masked so they never end up in the saved log
+      req.method === "POST"
+        ? `body=${JSON.stringify(req.body?.password ? { ...req.body, password: "***" } : req.body)}`
+        : "",
       `-> ${res.statusCode}`,
       resultCode ? `result=${resultCode}` : "",
       res.locals.errorDetail ? `detail="${res.locals.errorDetail}"` : "",
@@ -59,9 +65,20 @@ app.get("/api/courses/:code", async (req, res) => {
              availableSeats: c.available_seats, seatLabel: seatLabel(c.available_seats) });
 });
 
-app.post("/api/registrations", async (req, res) => {
+// Login: student ID + password. A session cookie identifies the student after that.
+app.post("/api/login", login);
+app.post("/api/logout", logout);
+app.get("/api/me", async (req, res) => {
+  const student = await currentStudent(req);
+  if (!student) return res.status(401).json({ error: "NOT_LOGGED_IN", message: "Not logged in" });
+  res.json({ studentId: student.id, name: student.name });
+});
+
+// The student comes from the login session, not the request body, so one
+// student cannot register someone else
+app.post("/api/registrations", requireLogin, async (req, res) => {
   try {
-    const result = await registerStudent(req.body?.studentId, req.body?.courseCode);
+    const result = await registerStudent(req.student.id, req.body?.courseCode);
     res.status(201).json({ message: "Registration successful", ...result,
                            seatLabel: seatLabel(result.availableSeats) });
   } catch (err) {
@@ -74,7 +91,8 @@ app.post("/api/registrations", async (req, res) => {
   }
 });
 
-// Student-facing course page
+// Student-facing pages
+app.get("/login", (_req, res) => res.sendFile(path.join(publicDir, "login.html")));
 app.get("/courses/:code", (_req, res) => res.sendFile(path.join(publicDir, "course.html")));
 
 // Test-only fixture routes. They are never mounted outside NODE_ENV=test.
